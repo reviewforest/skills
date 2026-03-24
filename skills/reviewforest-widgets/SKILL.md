@@ -16,11 +16,24 @@ Integrate ReviewForest review widgets into any website. Two approaches:
 - **User wants zero code / quick embed** (WordPress, Squarespace, Wix, any CMS) → Use **Approach 2: JS Embed**
 - **User wants to create or manage widgets programmatically** → Use **Authenticated API** section
 
-## Prerequisites
+## Getting Started
 
-Ask the user for their **widget UUID**. They get this from https://app.reviewforest.org → Widgets → select a widget → copy the UUID.
+Ask the user to provide their **widget embed code or UUID**. Here's how they get it:
 
-If they want to use the authenticated API (create widgets, list forests, plant trees), they also need an **API key** from Settings → API.
+### For displaying reviews (Native Rendering or JS Embed)
+
+1. Go to https://app.reviewforest.org → **Widgets**
+2. Create any widget type (or select an existing one)
+3. Optionally configure appearance, which reviews to show, sorting, etc.
+4. Click **Install** — this shows the embed code
+
+The user can paste the full embed code (the AI agent extracts the UUID from it) or just the UUID. The UUID is the part after `reviewforest-app-` in the embed code, e.g. `2d8bf3a3-54bd-4fa7-bd1a-a823109703e4`.
+
+Widget configuration (appearance, sorting, which reviews to show) is done in the ReviewForest app. The API returns these settings, so native rendering can respect them too.
+
+### For the authenticated API (managing widgets programmatically)
+
+Create an API key at https://app.reviewforest.org/integrations/public-api
 
 ## Approach 1: Native Rendering (Recommended for Vibe Coders)
 
