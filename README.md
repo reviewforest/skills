@@ -1,6 +1,6 @@
 # ReviewForest Skills
 
-Agent skills for integrating [ReviewForest](https://reviewforest.org) into any website. Works with Claude Code, Cursor, Codex, Copilot, and 35+ AI coding agents.
+Display your [ReviewForest](https://reviewforest.org) reviews on your website. Works with Claude Code, Cursor, Codex, Copilot, and 35+ AI coding agents.
 
 ## Install
 
@@ -8,18 +8,14 @@ Agent skills for integrating [ReviewForest](https://reviewforest.org) into any w
 npx skills add reviewforest/skills
 ```
 
-## Available Skills
+## reviewforest-widgets
 
-### reviewforest-widgets
+Show your ReviewForest reviews, star ratings, and tree-planting stats on any website. Two approaches:
 
-Add ReviewForest review widgets and tree counters to any website. Two approaches:
+- **Native rendering** — Fetch review data from the public API and render it in your own framework (React, Vue, HTML, etc.). Full styling control, no external JavaScript. Best for custom sites and vibe coding.
+- **JS embed** — Add two lines of HTML to embed the official ReviewForest widget. Best for CMS sites (WordPress, Squarespace, Wix).
 
-- **Native rendering** — Fetch review data from the public API and render in your own framework (React, Vue, HTML). Full styling control, no external JavaScript.
-- **JS embed** — Paste the official widget embed code. Zero code, styled by ReviewForest.
-
-Also covers the authenticated API for creating and managing widgets programmatically.
-
-**Prerequisites:** A ReviewForest account and widget UUID from [app.reviewforest.org](https://app.reviewforest.org).
+**What you need:** A ReviewForest account and a widget UUID from [app.reviewforest.org](https://app.reviewforest.org).
 
 ## Links
 

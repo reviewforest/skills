@@ -1,6 +1,6 @@
 ---
 name: reviewforest-widgets
-description: Add ReviewForest review widgets and tree counters to any website. Use when a user wants to display ReviewForest reviews, ratings, tree counters, or badges on their site — either by fetching data from the ReviewForest API and rendering natively, or by embedding the official widget JavaScript. Also use when the user wants to manage ReviewForest widgets via API (create, update, list). Triggers on mentions of ReviewForest, review widgets, tree counter widgets, review badges, or forest page embeds.
+description: Display your ReviewForest reviews on your website. Fetches your reviews, star ratings, and tree-planting stats from the ReviewForest API so you can render them natively in any framework — or embed the official widget with two lines of HTML. Use when someone wants to show ReviewForest reviews, ratings, or tree counters on their site.
 ---
 
 # ReviewForest Widget Integration
