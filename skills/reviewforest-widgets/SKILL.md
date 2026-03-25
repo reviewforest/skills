@@ -147,6 +147,8 @@ Key fields from each review:
 
 Build UI components using the fetched data. What to render depends on the user's needs — a full review listing, just a score badge, a tree counter, or any combination.
 
+Use the user's framework and match existing code patterns. For React — create components, for Vue — use templates, for static HTML — use semantic markup with minimal JavaScript. Do not default to building DOM entirely through JavaScript unless the project already does this.
+
 ### Review Text Structure
 
 Reviews can have two formats:
