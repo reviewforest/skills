@@ -149,6 +149,8 @@ Build UI components using the fetched data. What to render depends on the user's
 
 Use the user's framework and match existing code patterns. For React — create components, for Vue — use templates, for static HTML — use semantic markup with minimal JavaScript. Do not default to building DOM entirely through JavaScript unless the project already does this.
 
+**Security:** API data includes user-generated content (review text, names) from external platforms. Never render it via `innerHTML` or other methods that allow HTML injection. Use safe methods: `textContent` in vanilla JS, `{{ }}` in Vue, `{}` in JSX (React escapes by default). For structured review text that may contain HTML formatting, sanitize it before rendering.
+
 ### Review Text Structure
 
 Reviews can have two formats:
