@@ -84,6 +84,21 @@ All API requests require the `apikey` header:
 apikey: YOUR_API_KEY
 ```
 
+### What can be displayed
+
+Clarify with the user what they want to show. Available data:
+
+- **Aggregate score** — overall rating (e.g. "4.8")
+- **Review count** — total number of reviews
+- **Tree count** — total, from reviews, additional, or broken down by period
+- **Platform info** — connected platforms with per-platform scores and review counts
+- **Individual reviews** — reviewer name, score, text, date, platform
+- **Forest link** — link to the public forest page
+
+If showing individual reviews, ask about:
+- **Sorting** — by date or name
+- **Filtering** — show only reviews with text, or all
+
 ### Step 1: Get Forest ID
 
 ```
