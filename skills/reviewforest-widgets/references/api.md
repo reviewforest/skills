@@ -2,230 +2,378 @@
 
 Base URL: `https://api.reviewforest.org`
 
-## Public Endpoints (No Auth Required)
+Full interactive documentation: https://reviewforest.org/apidoc/ | Swagger: https://reviewforest.org/apidoc/swagger.json
 
-### Get Widget by UUID
+## Authentication
+
+All endpoints require the `apikey` header:
 
 ```
-GET /v1/widgets/{uuid}
+apikey: YOUR_API_KEY
 ```
 
-Returns widget configuration and forest data. No authentication needed.
+Create an API key at https://app.reviewforest.org/integrations/public-api. Use **read-only** mode for client-side JavaScript.
 
-**Response** (simplified):
+## Pagination
+
+All list endpoints support pagination via query parameters:
+
+| Parameter | Type | Default | Values |
+|-----------|------|---------|--------|
+| `pageSize` | number | `10` | `10`, `15`, `20`, `25`, `50`, `100` |
+| `page` | number | `1` | any positive integer |
+
+Paginated responses include:
+
 ```json
 {
-  "count": 1,
-  "data": [{
-    "uuid": "abc-123",
-    "type": "2in1",
-    "sub_type": "badge",
-    "config": {
-      "appearance": "light",
-      "behaviour": "floating",
-      "position": "bottom-right",
-      "logo_of_review_platform": true,
-      "number_of_reviews": true,
-      "number_of_trees_planted": true,
-      "star_rating": true,
-      "verified_by_rf": true,
-      "hide_on_mobile": false,
-      "reviews_scroll_type": "auto",
-      "reviews_sort_by": "date",
-      "reviews_sort_order": "desc",
-      "show_review_only_with_text": false
-    },
-    "status": 1,
-    "name": "My Business",
-    "data": {
-      "category": "business",
-      "totalTreeAmount": 142,
-      "reviewTreeAmount": 120,
-      "additionalTreeAmount": 22,
-      "slug": "my-business",
-      "name": "My Business",
-      "active": true,
-      "score": "4.8",
-      "reviewAmount": 120,
-      "reviewAmountOnPlatform": 95,
-      "displaySettings": { ... },
-      "platforms": [
-        { "keys": { "placeId": "...", "reviewLink": "https://..." }, "name": "My Business", "type": "google" }
-      ],
-      "platformsOrder": ["google", "facebook"]
-    },
-    "subscription": {
-      "plantingReviewLimit": 500,
-      "status": "active",
-      "plan": "premium"
-    }
-  }]
+  "query": { "pageSize": 10, "page": 1, "sortBy": "...", "order": "..." },
+  "count": 95,
+  "data": [...]
 }
 ```
 
-### Get Widget Reviews
+`count` is the total number of items. Use `count` and `pageSize` to calculate total pages.
 
-```
-GET /v1/widgets/{uuid}/reviews
-```
+---
 
-Returns paginated reviews. No authentication needed.
+## GET /v1/forests
+
+List all forests for the authenticated account.
 
 **Query Parameters:**
+
 | Parameter | Type | Default | Values |
 |-----------|------|---------|--------|
-| `sortBy` | string | `date` | `date`, `name`, `score` |
+| `sortBy` | string | `createdAt` | `additionalTreeAmount`, `createdAt`, `name`, `score`, `reviewAmount`, `reviewTreeAmount`, `totalTreeAmount` |
 | `order` | string | `desc` | `asc`, `desc` |
 | `pageSize` | number | `10` | `10`, `15`, `20`, `25`, `50`, `100` |
 | `page` | number | `1` | any positive integer |
-| `showReviewOnlyWithText` | boolean | `false` | `true`, `false` |
+| `platformTypes` | string | `all` | comma-separated platform types |
 
 **Response:**
+
 ```json
 {
-  "query": { "pageSize": 10, "sortBy": "date", "order": "desc", "page": 1 },
-  "count": 95,
+  "query": { "sortBy": "createdAt", "order": "desc", "pageSize": 10, "page": 1 },
+  "count": 2,
   "data": [
     {
-      "uniqueId": "f7cc727c9db25c0803dffb5d",
-      "name": "John D.",
-      "score": 5,
-      "text": "Excellent service and great to see trees being planted!",
-      "date": "2025-12-15T10:30:00.000Z",
-      "platformType": "google",
-      "id": "693f510e54f359ac56746b30"
+      "id": "608a814677b4f80db24913a2",
+      "name": "My Business",
+      "type": "single",
+      "category": "business",
+      "slug": "my-business",
+      "slugId": "123456",
+      "active": true,
+      "score": "4.8",
+      "reviewAmount": 120,
+      "reviewAmountOnPlatform": 3193,
+      "totalTreeAmount": 142,
+      "reviewTreeAmount": 120,
+      "additionalTreeAmount": 22,
+      "plantingReviewLimit": -1,
+      "isPlantingTrees": false,
+      "treeNumbers": {
+        "thisPeriod": 5,
+        "thisWeek": 3,
+        "thisMonth": 12,
+        "thisYear": 85,
+        "lastPeriod": 0,
+        "lastWeek": 4,
+        "lastMonth": 15,
+        "lastYear": 57
+      },
+      "displaySettings": {
+        "allowDownloadingTreeCertificate": false,
+        "showTreeAges": true,
+        "showReviewerInitialOnly": false,
+        "showReviewTextAndScore": true,
+        "useFormalAddressing": false,
+        "logo": "https://..."
+      },
+      "plantingProjects": [
+        { "projectId": 2, "trees": 128 },
+        { "projectId": 1, "trees": 14 }
+      ],
+      "platforms": ["platformId1", "platformId2"],
+      "platformsOrder": ["google", "facebook"],
+      "pinnedPlatform": "google",
+      "projectId": 4,
+      "createdAt": "2024-01-15T10:00:00.000Z",
+      "updatedAt": "2025-12-20T14:30:00.000Z"
     }
   ]
 }
 ```
 
-### Get Forest Counter
-
-```
-GET /v1/widgets/{slug}/counter
-```
-
-Returns tree count and basic forest metadata. No auth. Use the forest slug (from the widget data's `data.slug` field).
-
-**Response:**
-```json
-{
-  "active": true,
-  "id": "608a814677b4f80db24913a2",
-  "name": "My Business",
-  "slug": "my-business",
-  "totalTreeAmount": 142,
-  "type": "single"
-}
-```
-
-Note: This endpoint only returns `totalTreeAmount`, not broken down by review/additional trees. For detailed tree counts and review scores, use the widget endpoint instead.
-
-### Track Widget Events
-
-```
-POST /v1/widgets/{uuid}/events/{type}
-```
-
-Track impressions and clicks. Type: `impression` or `click`. No auth required.
+Note: In the list endpoint, `platforms` contains an array of platform IDs (strings), not full platform objects. Use `GET /v1/forests/{forestId}` for detailed platform info.
 
 ---
 
-## Authenticated Endpoints (API Key Required)
+## GET /v1/forests/{forestId}
 
-Pass `apikey` header with all requests. Get your API key from https://app.reviewforest.org → Settings → API.
+Get detailed forest data including full platform information.
 
-### List All Widgets
+**Response** (returns the forest object directly, not wrapped in an array):
 
-```
-GET /v1/widgets
-Header: apikey: YOUR_API_KEY
-```
-
-**Query Parameters:** `sortBy` (createdAt), `order` (asc/desc), `pageSize`, `page`
-
-### Create Widget
-
-```
-POST /v1/widgets
-Header: apikey: YOUR_API_KEY
-Content-Type: application/json
-```
-
-**Required fields:**
-| Field | Type | Values |
-|-------|------|--------|
-| `data_id` | string | Forest ID (MongoDB ObjectId) |
-| `type` | string | `2in1`, `counter`, `forest`, `mini`, `review-score`, `testimonial-carousel` |
-
-**Optional fields:**
-| Field | Type | Values |
-|-------|------|--------|
-| `sub_type` | string | `badge`, `testimonial`, `banner-review-score`, `tree-counter`, `review-score` |
-| `appearance` | string | `light`, `dark` |
-| `behaviour` | string | `floating`, `fixed-position` |
-| `position` | string | `bottom-left`, `bottom-right` |
-| `name` | string | Widget display name |
-| `logo_of_review_platform` | boolean | Show platform logos |
-| `number_of_reviews` | boolean | Show review count |
-| `number_of_trees_planted` | boolean | Show tree count |
-| `verified_by_rf` | boolean | Show "Verified by ReviewForest" |
-| `star_rating` | boolean | Show star rating |
-| `ask_for_reviews` | boolean | Show "Write a review" CTA |
-| `ask_for_reviews_type` | number | `1` (to platform), `2` (to ReviewForest) |
-| `hide_on_mobile` | boolean | Hide on mobile devices |
-| `forest_content` | string | `only-forest`, `whole-page` |
-| `text_version` | string | `full`, `short` |
-| `font_size` | string | `small`, `medium` |
-| `reviews_scroll_type` | string | `auto`, `manual` |
-| `reviews_sort_by` | string | `name`, `score`, `date` |
-| `reviews_sort_order` | string | `asc`, `desc` |
-| `show_review_only_with_text` | boolean | Only show reviews with text |
-
-### Update Widget Config
-
-```
-PATCH /v1/widgets/{uuid}
-Header: apikey: YOUR_API_KEY
-Content-Type: application/json
-```
-
-Body: any of the optional config fields from Create.
-
-### List Forests
-
-```
-GET /v1/forests
-Header: apikey: YOUR_API_KEY
-```
-
-**Query Parameters:** `sortBy`, `order`, `pageSize`, `page`
-
-Returns all forests for the authenticated account. Use the forest `id` as `data_id` when creating widgets.
-
-### Get Forest Reviews
-
-```
-GET /v1/forests/{id}/reviews
-Header: apikey: YOUR_API_KEY
-```
-
-### Get Forest Trees
-
-```
-GET /v1/forests/{id}/trees
-Header: apikey: YOUR_API_KEY
+```json
+{
+  "id": "608a814677b4f80db24913a2",
+  "name": "My Business",
+  "type": "single",
+  "category": "business",
+  "slug": "my-business",
+  "slugId": "123456",
+  "active": true,
+  "score": "4.8",
+  "reviewAmount": 120,
+  "reviewAmountOnPlatform": 3193,
+  "totalTreeAmount": 142,
+  "reviewTreeAmount": 120,
+  "additionalTreeAmount": 22,
+  "plantingReviewLimit": -1,
+  "isPlantingTrees": false,
+  "treeNumbers": {
+    "thisPeriod": 5,
+    "thisWeek": 3,
+    "thisMonth": 12,
+    "thisYear": 85,
+    "lastPeriod": 0,
+    "lastWeek": 4,
+    "lastMonth": 15,
+    "lastYear": 57
+  },
+  "displaySettings": {
+    "allowDownloadingTreeCertificate": false,
+    "showTreeAges": true,
+    "showReviewerInitialOnly": false,
+    "showReviewTextAndScore": true,
+    "useFormalAddressing": false,
+    "logo": "https://..."
+  },
+  "plantingProjects": [
+    { "projectId": 2, "trees": 128 },
+    { "projectId": 1, "trees": 14 }
+  ],
+  "platforms": [
+    {
+      "id": "platformId1",
+      "type": "google",
+      "typeDisplayName": "Google",
+      "name": "My Business on Google",
+      "active": true,
+      "score": "4.9",
+      "reviewAmount": 80,
+      "reviewAmountOnPlatform": 3181,
+      "reviewTreeAmount": 80,
+      "isPlantingTrees": true,
+      "keys": {
+        "placeId": "ChIJ..."
+      },
+      "reviewNumbers": {
+        "total": 80,
+        "thisWeek": 2,
+        "thisMonth": 8,
+        "thisYear": 55
+      },
+      "lastCrawlingTimestamp": 1703001600,
+      "lastReviewDate": "2025-12-18T09:00:00.000Z",
+      "createdAt": "2024-01-15T10:00:00.000Z",
+      "updatedAt": "2025-12-20T14:30:00.000Z"
+    }
+  ],
+  "platformsOrder": ["google", "facebook"],
+  "pinnedPlatform": "google",
+  "projectId": 4,
+  "createdAt": "2024-01-15T10:00:00.000Z",
+  "updatedAt": "2025-12-20T14:30:00.000Z"
+}
 ```
 
-### Plant Trees
+Key notes:
+- `platforms[].name` is the business listing name on that platform, NOT the platform display name. Use `platforms[].typeDisplayName` for the human-readable platform name.
+- `score` is a string (e.g. "4.8"), not a number.
+- `category`: "business", "employee", "product", "application", or null (for brand forests).
+- `type`: "single" (regular forest) or "brand" (brand forest combining multiple forests).
+- `reviewAmount` — reviews imported into ReviewForest; `reviewAmountOnPlatform` — total reviews on the source platform(s). Both exist at forest level and per platform.
+- `plantingReviewLimit`: -1 means unlimited.
+- `displaySettings.logo` — the customer's logo uploaded for their forest page. Can be a string URL or an object with `variants` (keys: `emailLogo`, `public`, `pageLogo`). Use `variants.pageLogo` for display.
+- `platforms[].keys` — platform-specific identifiers. Different per platform type: `placeId` (Google), `companyWebsite` (Trustpilot), `fbPageId` (Facebook), etc.
 
-```
-POST /v1/forests/{id}/trees
-Header: apikey: YOUR_API_KEY
-Content-Type: application/json
+---
+
+## GET /v1/forests/{forestId}/reviews
+
+List reviews for a forest.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Values |
+|-----------|------|---------|--------|
+| `sortBy` | string | `date` | `date`, `name` |
+| `order` | string | `desc` | `asc`, `desc` |
+| `pageSize` | number | `10` | `10`, `15`, `20`, `25`, `50`, `100` |
+| `page` | number | `1` | any positive integer |
+| `showReviewOnlyWithText` | boolean | `false` | `true`, `false` — filter to only return reviews that have text |
+
+**Response:**
+
+```json
+{
+  "query": { "sortBy": "date", "order": "desc", "pageSize": 10, "page": 1, "showReviewOnlyWithText": false },
+  "count": 95,
+  "data": [
+    {
+      "name": "John D.",
+      "score": 5,
+      "title": "Great experience",
+      "text": "Excellent service and great to see trees being planted!",
+      "date": "2025-12-15T10:30:00.000Z",
+      "platformType": "google"
+    }
+  ]
+}
 ```
 
-**Body:**
+### Review Text Formats
+
+Reviews can have two text formats:
+
+**Simple review** — has `text` (string or null) and optionally `title` (string or null):
+
+```json
+{
+  "name": "John D.",
+  "score": 5,
+  "title": "Great experience",
+  "text": "Excellent service!",
+  "platformType": "google"
+}
+```
+
+**Structured review** — has `texts[]` and/or `ratings[]` arrays instead of (or in addition to) `text`. Each item has `id` (topic key) and `text` (may contain basic HTML — sanitize before rendering):
+
+```json
+{
+  "name": "Jane S.",
+  "score": 4,
+  "title": "Mostly positive",
+  "texts": [
+    { "id": "pros", "text": "Great team and culture" },
+    { "id": "cons", "text": "Could improve communication" }
+  ],
+  "ratings": [
+    { "id": "workLife", "text": "Good balance overall" },
+    { "id": "salary", "text": "Competitive" }
+  ],
+  "platformType": "kununu"
+}
+```
+
+A review may have `texts` only, `ratings` only, or both. Combine them when rendering. If neither array is present, fall back to the plain `text` field.
+
+### Review Topic Keys
+
+Use these display labels for the topic `id` values:
+
+| Key | English Label |
+|-----|--------------|
+| `advice` | Advice |
+| `atmosphere` | Work atmosphere |
+| `career` | Career/further training |
+| `communication` | Communication |
+| `cons` | Cons |
+| `environment` | Environmental/social awareness |
+| `equality` | Equal rights |
+| `image` | Image |
+| `leadership` | Superiors' behavior |
+| `negative` | What I find bad about the employer |
+| `oldColleagues` | Interaction with older colleagues |
+| `positive` | What I find good about the employer |
+| `problems` | What problems does this product solve for you? |
+| `pros` | Pros |
+| `salary` | Salary/benefits |
+| `suggestion` | Suggestions for improvement |
+| `tasks` | Interesting tasks |
+| `teamwork` | Team spirit |
+| `whatDoYouDislike` | What do you dislike? |
+| `whatDoYouLikeTheBest` | What do you like best? |
+| `whatProblemsWereSolved` | What problems were solved? |
+| `workConditions` | Work conditions |
+| `workLife` | Work-life balance |
+
+---
+
+## GET /v1/forests/{forestId}/trees
+
+List planted trees for a forest.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Values |
+|-----------|------|---------|--------|
+| `sortBy` | string | `date` | `date`, `name` |
+| `order` | string | `desc` | `asc`, `desc` |
+| `pageSize` | number | `10` | `10`, `15`, `20`, `25`, `50`, `100` |
+| `page` | number | `1` | any positive integer |
+
+**Response:**
+
+```json
+{
+  "query": { "sortBy": "date", "order": "desc", "pageSize": 10, "page": 1 },
+  "count": 129,
+  "data": [
+    {
+      "id": "6757947854f359ac56bcc52e",
+      "forestId": "5e6f68a238fda2b2bff9692a",
+      "name": "Tenna Mouritzen",
+      "date": "2024-12-09T12:05:45.000Z",
+      "score": 5,
+      "title": "5 stars from me",
+      "text": "Great service!",
+      "type": "review",
+      "platformType": "trustpilot",
+      "url": "https://www.trustpilot.com/reviews/...",
+      "pageTreeUrl": "https://reviewforest.org/demo-page?review=...",
+      "plantingProject": "Eden: People+Planet",
+      "plantingProjectId": 2,
+      "invoiceNumber": "91F1C875-0047",
+      "uniqueId": "6756c0f9b9052872cc902dcc"
+    },
+    {
+      "id": "66794df0c140d280933f062e",
+      "forestId": "5e6f68a238fda2b2bff9692a",
+      "name": "Noel Smith",
+      "date": "2024-06-24T10:44:01.000Z",
+      "type": "additionalTree",
+      "occasion": "Business Celebration",
+      "pageTreeUrl": "https://reviewforest.org/demo-page?review=...",
+      "plantingProject": "Eden: People+Planet",
+      "plantingProjectId": 2,
+      "invoiceNumber": "91F1C875-0038",
+      "uniqueId": "b9914fbf-9fd0-4f71-97f5-c1794d444d38"
+    }
+  ]
+}
+```
+
+Key notes:
+- Tree `type` is either `"review"` (planted from a review) or `"additionalTree"` (manually planted).
+- Review trees have `score`, `text`, `title`, `platformType`, and `url` (link to original review on the source platform). May also have `texts[]`/`ratings[]` for structured reviews (same format as in the reviews endpoint).
+- Additional trees have `occasion` instead of review data.
+- `pageTreeUrl` — link to the tree on the ReviewForest forest page.
+- `url` — direct link to the original review on the source platform (only on review trees).
+
+---
+
+## POST /v1/forests/{forestId}/trees
+
+Plant additional trees.
+
+**Request Body:**
+
 ```json
 {
   "quantity": 5,
@@ -234,20 +382,11 @@ Content-Type: application/json
 }
 ```
 
+All fields are optional. `quantity` defaults to 1.
+
+**Response:** Array of planted tree objects.
+
 ---
-
-## Widget Type Reference
-
-| Type + Sub-type | Widget Name | Description |
-|----------------|-------------|-------------|
-| `2in1` + `badge` | 2-in-1 Badge | Combined review score + tree counter badge |
-| `review-score` + `badge` | Review Score Badge | Shows aggregate rating |
-| `review-score` + `banner-review-score` | Review Score Banner | Banner-style review score |
-| `counter` + `tree-counter` | Tree Counter Badge | Shows trees planted count |
-| `mini` + `review-score` | Mini Review Score | Compact rating display |
-| `mini` + `tree-counter` | Mini Tree Counter | Compact tree count |
-| `forest` | Forest Widget | Full interactive forest with reviews |
-| `testimonial-carousel` + `testimonial` | Testimonial Carousel | Rotating review display |
 
 ## Forest Page URL
 

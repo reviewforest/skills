@@ -1,243 +1,250 @@
 ---
 name: reviewforest-widgets
-description: Display your ReviewForest reviews on your website. Fetches your reviews, star ratings, and tree-planting stats from the ReviewForest API so you can render them natively in any framework — or embed the official widget with two lines of HTML. Use when someone wants to show ReviewForest reviews, ratings, or tree counters on their site.
+description: Display your ReviewForest reviews on your website. Embed an official ReviewForest widget with a small code snippet, or fetch review data from the ReviewForest API to render a fully custom design. Use when someone wants to show ReviewForest reviews, ratings, or tree counters on their site.
 ---
 
 # ReviewForest Widget Integration
 
 Integrate ReviewForest review widgets into any website. Two approaches:
 
-1. **Native rendering** — Fetch review data from the public API and render it in the user's own framework (React, Vue, HTML, etc.). No external JavaScript. Full styling control.
-2. **JS embed** — Paste the official widget embed code. Zero code, styled by ReviewForest, customizable with CSS.
+1. **Widget embed (recommended)** — Create and customize a widget in the ReviewForest dashboard, then add a small code snippet to the site. 7 widget types available. Works with any site.
+2. **Custom rendering via API** — Fetch review data from the ReviewForest API and render it in the user's own framework (React, Vue, HTML, etc.). No external JavaScript. Full styling control.
 
 ## Which Approach?
 
-- **User is building a custom site** (React, Vue, Next.js, HTML) → Use **Approach 1: Native Rendering**
-- **User wants zero code / quick embed** (WordPress, Squarespace, Wix, any CMS) → Use **Approach 2: JS Embed**
-- **User wants to create or manage widgets programmatically** → Use **Authenticated API** section
+- **Default for most cases** → Use **Approach 1: Widget Embed**. The user creates and configures the widget in the dashboard (appearance, which reviews to show, sorting, etc.), then adds the embed snippet. Works with any site — custom (React, Vue, Next.js) or CMS (WordPress, Squarespace, Wix).
+- **User needs a fully custom design** that the pre-built widgets can't achieve → Use **Approach 2: Custom Rendering via API**
 
 ## Getting Started
 
-Ask the user to provide their **widget embed code or UUID**. Here's how they get it:
+Ask the user which approach they want:
 
-### For displaying reviews (Native Rendering or JS Embed)
+- **Widget embed** — the user creates a widget at https://app.reviewforest.org/website-widgets/add (or copies the snippet from an existing one at https://app.reviewforest.org/website-widgets/installed), then provides the embed snippet (or just the UUID). See **Approach 1**.
+- **Custom rendering** — the user creates an API key (read-only mode) at https://app.reviewforest.org/integrations/public-api. See **Approach 2**. Detailed API reference: [references/api.md](references/api.md)
 
-1. Go to https://app.reviewforest.org → **Widgets**
-2. Create any widget type (or select an existing one)
-3. Optionally configure appearance, which reviews to show, sorting, etc.
-4. Click **Install** — this shows the embed code
+## Approach 1: Widget Embed (Recommended)
 
-The user can paste the full embed code (the AI agent extracts the UUID from it) or just the UUID. The UUID is the part after `reviewforest-app-` in the embed code, e.g. `2d8bf3a3-54bd-4fa7-bd1a-a823109703e4`.
+Create a widget at https://app.reviewforest.org/website-widgets/add, customize it, then install the embed snippet on the site. Existing widgets can be managed at https://app.reviewforest.org/website-widgets/installed.
 
-Widget configuration (appearance, sorting, which reviews to show) is done in the ReviewForest app. The API returns these settings, so native rendering can respect them too.
+### Embed Snippet
 
-### For the authenticated API (managing widgets programmatically)
-
-Create an API key at https://app.reviewforest.org/integrations/public-api
-
-## Approach 1: Native Rendering (Recommended for Vibe Coders)
-
-Fetch data from the public API and render reviews/badges in the user's framework. No external scripts needed.
-
-### Step 1: Fetch Widget Data
-
-```
-GET https://api.reviewforest.org/v1/widgets/{uuid}
-```
-
-No auth required. Returns widget config + forest data including score, review count, tree count, platform info.
-
-### Step 2: Fetch Reviews
-
-```
-GET https://api.reviewforest.org/v1/widgets/{uuid}/reviews?pageSize=10&sortBy=date&order=desc
-```
-
-No auth required. Returns paginated reviews with `name`, `score` (1-5), `text`, `date`, `platformType`.
-
-Optional query params: `sortBy` (date/name/score), `order` (asc/desc), `pageSize` (10/15/20/25/50/100), `page`, `showReviewOnlyWithText` (true/false).
-
-### Step 3: Render
-
-Build UI components using the fetched data. Key data fields:
-
-**From widget data** (`response.data[0]`):
-- `data.score` — aggregate rating (string, e.g. "4.8")
-- `data.reviewAmount` — total review count
-- `data.totalTreeAmount` — trees planted
-- `data.name` — business name
-- `data.slug` — forest page slug (link to `https://reviewforest.org/{slug}`)
-- `data.platforms` — array of connected platforms. Use `type` for the platform label (e.g. "google"). Note: `name` is NOT the platform name — it's the name of the business listing
-- `config.appearance` — "light" or "dark"
-
-**From reviews** (`response.data[]`):
-- `name` — reviewer display name
-- `score` — 1-5 star rating
-- `text` — review text (may be empty)
-- `date` — ISO date string
-- `platformType` — source platform (google, facebook, trustpilot, etc.)
-
-### Step 4: Track Impressions (Optional but Appreciated)
-
-```
-POST https://api.reviewforest.org/v1/widgets/{uuid}/events/impression
-```
-
-Call once when the widget becomes visible. Helps the customer see widget performance analytics.
-
-### Example: Minimal Vanilla JS
-
-```javascript
-const UUID = 'WIDGET_UUID_HERE';
-const API = 'https://api.reviewforest.org/v1/widgets';
-
-async function loadReviewForest(containerId) {
-  const [widgetRes, reviewsRes] = await Promise.all([
-    fetch(`${API}/${UUID}`),
-    fetch(`${API}/${UUID}/reviews?pageSize=5&showReviewOnlyWithText=true`)
-  ]);
-
-  const widget = (await widgetRes.json()).data[0];
-  const reviews = (await reviewsRes.json()).data;
-  const container = document.getElementById(containerId);
-
-  // Build header
-  const header = document.createElement('div');
-  header.textContent = `${widget.data.score} ★ · ${widget.data.reviewAmount} reviews · 🌳 ${widget.data.totalTreeAmount} trees planted`;
-  container.appendChild(header);
-
-  // Build review cards
-  reviews.forEach(r => {
-    const card = document.createElement('div');
-    const stars = '★'.repeat(r.score) + '☆'.repeat(5 - r.score);
-    const name = document.createElement('strong');
-    name.textContent = r.name;
-    card.appendChild(name);
-    card.appendChild(document.createTextNode(` ${stars} `));
-    if (r.text) {
-      const text = document.createElement('p');
-      text.textContent = r.text;
-      card.appendChild(text);
-    }
-    container.appendChild(card);
-  });
-
-  // Link to forest page
-  const link = document.createElement('a');
-  link.href = `https://reviewforest.org/${widget.data.slug}`;
-  link.textContent = 'View our ReviewForest →';
-  container.appendChild(link);
-
-  // Track impression
-  fetch(`${API}/${UUID}/events/impression`, { method: 'POST' });
-}
-```
-
-### Platform Logos
-
-Use Google's favicon service to show platform logos. Map `platformType` to domain:
-
-```javascript
-const PLATFORM_DOMAINS = {
-  'google': 'google.com',
-  'facebook': 'facebook.com',
-  'trustpilot': 'trustpilot.com',
-  'amazon': 'amazon.com',
-  'kununu': 'kununu.com',
-  'glassdoor': 'glassdoor.com',
-  'apple-appstore': 'apps.apple.com',
-  'google-playstore': 'play.google.com'
-};
-
-function platformLogoUrl(platformType, size = 32) {
-  const domain = PLATFORM_DOMAINS[platformType];
-  return domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=${size}` : null;
-}
-```
-
-Use in `<img>` tags. Available sizes: 16, 32, 64, 128. Show next to reviewer names or in the widget header alongside platform names.
-
-### Review Links
-
-The widget data includes review links in `data.platforms[].keys.reviewLink`. Build a map by platform type and use it to link reviews back to the source platform:
-
-```javascript
-// Build from widget data
-const reviewLinks = {};
-widget.data.platforms.forEach(p => {
-  if (p.keys?.reviewLink) reviewLinks[p.type] = p.keys.reviewLink;
-});
-
-// Use in review cards: reviewLinks[review.platformType]
-```
-
-### Design Guidance
-
-- **Platform logo placement:** Show the platform logo + name inline with the star rating (same row), not as a separate footer element. This creates an immediate visual association between the rating and its source
-- **Platform name:** Use `platforms[].type` for display (e.g. "Google"), NOT `platforms[].name` which is the business listing name, not the platform
-- **Review links:** Make platform labels clickable, linking to `platforms[].keys.reviewLink`
-- **Forest link:** Always link to the forest page: `https://reviewforest.org/{slug}`
-- **Branding:** Include a "Powered by ReviewForest" footer or similar attribution
-- **Appearance:** Use `config.appearance` to determine light/dark styling
-- **Mobile:** Respect `config.hide_on_mobile` if rendering a floating widget
-- **Star ratings:** Integer 1-5 per review, decimal string for aggregate (e.g. "4.8")
-- Platform types: `google`, `facebook`, `trustpilot`, `amazon`, `kununu`, `glassdoor`, `apple-appstore`, `google-playstore`
-
-## Approach 2: JS Embed (Zero Code)
-
-Paste two tags into the site's `<head>` or before `</body>`:
+The snippet consists of two parts — a script tag (included once) and a div for each widget:
 
 ```html
-<script src="https://widgets.reviewforest.org/main.js" defer charset="UTF-8"></script>
+<script src="https://widgets.reviewforest.org/main.js" defer></script>
 <div class="reviewforest-app-WIDGET_UUID_HERE"></div>
 ```
 
-Replace `WIDGET_UUID_HERE` with the actual UUID.
+The user will usually provide the full snippet with their UUID. If they only provide the UUID, construct the snippet above replacing `WIDGET_UUID_HERE`.
 
-### CSS Customization
+### Widget Types and Placement
 
-The widget renders in shadow DOM. To override styles, target the widget container:
+| Widget | Supports Floating | Placement Notes |
+|--------|:-----------------:|-----------------|
+| Testimonials carousel | No | Place where user wants. Needs a wide container — use a full-width or centered container (like Bootstrap/Tailwind `container`). Avoid narrow fixed-width parents. |
+| Review forest page | No | Full-page widget. Give it maximum width — ideally no container constraints, or only a centered container. Do not place inside narrow columns. |
+| Review score badge | Yes | See floating vs fixed position below |
+| Tree counter badge | Yes | See floating vs fixed position below |
+| 2-in-1 badge | Yes | See floating vs fixed position below |
+| Mini review score | No | Compact — place inline where user wants |
+| Mini tree counter | No | Compact — place inline where user wants |
 
-```css
-/* Position overrides for floating widgets */
-.reviewforest-app-UUID {
-  z-index: 9999 !important;
-}
-```
+All widgets use container queries and will adapt to their parent's width, but large widgets (carousel, forest page) will look poor in narrow containers.
 
-For deeper customization of the forest widget, see the help center article on CSS customization.
+### Floating vs Fixed Position
+
+Badge widgets (Review score badge, Tree counter badge, 2-in-1 badge) support two behaviors, configured in the dashboard. Ask the user which behavior they chose:
+
+- **Floating:** Place the `<div>` before the closing `</body>` tag. The widget will float over the page in a fixed position.
+- **Fixed position:** Place the `<div>` exactly where the user wants it in the page layout.
 
 ### Multiple Widgets
 
-Add multiple `<div>` elements with different UUIDs. The loader script only needs to be included once.
+Include the script tag only once. Add multiple `<div>` elements with different UUIDs:
 
 ```html
-<script src="https://widgets.reviewforest.org/main.js" defer charset="UTF-8"></script>
+<script src="https://widgets.reviewforest.org/main.js" defer></script>
 <div class="reviewforest-app-UUID_1"></div>
 <div class="reviewforest-app-UUID_2"></div>
 ```
 
-## Authenticated API (Widget Management)
+## Approach 2: Custom Rendering via API
 
-For creating and managing widgets programmatically. Requires an API key.
+Fetch data from the ReviewForest API and render reviews in the user's framework. Use this when the pre-built widgets don't fit the user's design needs. No external scripts needed. Requires an API key.
 
-Read [references/api.md](references/api.md) for full endpoint documentation including:
-- `GET /v1/forests` — List forests (to get forest IDs)
-- `POST /v1/widgets` — Create a new widget
-- `PATCH /v1/widgets/{uuid}` — Update widget config
-- `GET /v1/widgets` — List all widgets
-- `GET /v1/forests/{id}/trees` — Get planted trees
-- `POST /v1/forests/{id}/trees` — Plant trees via API
+### Prerequisites
 
-All authenticated requests require `apikey` header.
+The user needs an API key. Create one at https://app.reviewforest.org/integrations/public-api
 
-## Important Notes
+**Important:** When creating the API key, select **read-only** mode. A read-only key is safe to use in client-side JavaScript since it can only read data, not modify anything.
 
-- **CORS:** Public endpoints support CORS — call them directly from browser JavaScript, no backend proxy needed
-- **Error handling:** An invalid or inactive UUID returns `{ count: 0, data: [] }`. Always check that `data[0]` exists before accessing fields
-- **Impression tracking:** `POST /v1/widgets/{uuid}/events/impression` returns HTTP 200 with an empty body — this is expected, not an error
-- **Sort order:** When rendering natively, respect the widget's configured sort order (`config.reviews_sort_by` and `config.reviews_sort_order`) by passing them as query params to the reviews endpoint
-- Widget UUIDs are v4 UUIDs, not MongoDB ObjectIds
-- Forest slugs are URL-friendly strings (e.g., "my-business")
-- Review `score` is an integer 1-5 per review; aggregate `score` in widget data is a string (e.g., "4.8")
-- Reviews may have empty `text` — filter with `showReviewOnlyWithText=true` if needed
+All API requests require the `apikey` header:
+
+```
+apikey: YOUR_API_KEY
+```
+
+### What can be displayed
+
+Clarify with the user what they want to show. Available data:
+
+- **Aggregate score** — overall rating (e.g. "4.8")
+- **Review count** — total number of reviews
+- **Tree count** — total, from reviews, additional, or broken down by period
+- **Platform info** — connected platforms with per-platform scores and review counts
+- **Individual reviews** — reviewer name, score, text, date, platform
+- **Forest link** — link to the public forest page
+
+If showing individual reviews, ask about:
+- **Sorting** — by date or name
+- **Filtering** — show only reviews with text, or all
+
+### Step 1: Get Forest ID
+
+```
+GET https://api.reviewforest.org/v1/forests
+```
+
+Returns `{ query, count, data: [Forest, ...] }`. Each forest has an `id` (string) needed for subsequent requests.
+
+If the user has one forest, use it automatically. If multiple, show the list (use `name` to identify) and let the user choose.
+
+Query params: `sortBy` (createdAt/name/score/reviewAmount/totalTreeAmount), `order` (asc/desc), `pageSize` (10/15/20/25/50/100), `page`.
+
+### Step 2: Get Forest Data
+
+```
+GET https://api.reviewforest.org/v1/forests/{forestId}
+```
+
+Returns the forest object directly (not wrapped in an array).
+
+Key fields:
+- `name` — business/forest name
+- `slug` — forest page slug (link to `https://reviewforest.org/{slug}`)
+- `score` — aggregate rating (string, e.g. "4.8")
+- `reviewAmount` — total review count
+- `totalTreeAmount` — total trees planted
+- `reviewTreeAmount` — trees from reviews
+- `additionalTreeAmount` — manually planted trees
+- `treeNumbers` — tree counts by period (`thisWeek`, `thisMonth`, `thisYear`, `lastWeek`, `lastMonth`, `lastYear`)
+- `platforms[]` — connected platforms, each with:
+  - `type` — platform identifier (e.g. "google")
+  - `typeDisplayName` — human-readable platform name (e.g. "Google")
+  - `name` — business listing name on that platform (NOT the platform name)
+  - `score` — platform-specific rating
+  - `reviewAmount` — reviews on that platform
+
+### Step 3: Get Reviews (optional)
+
+```
+GET https://api.reviewforest.org/v1/forests/{forestId}/reviews
+```
+
+Only needed if the user wants to display individual reviews. If they only need the aggregate score, tree count, or platform info — Step 2 is enough.
+
+Returns `{ query, count, data: [Review, ...] }`.
+
+Query params: `sortBy` (date/name), `order` (asc/desc), `pageSize` (10/15/20/25/50/100), `page`, `showReviewOnlyWithText` (true/false — filter to only show reviews that have text).
+
+Ask the user how they want reviews sorted and whether to show only reviews with text.
+
+Key fields from each review:
+- `name` — reviewer display name
+- `score` — 1-5 star rating (integer)
+- `title` — review title (may be null)
+- `text` — review text (may be null)
+- `texts[]` / `ratings[]` — structured review (see Review Text Structure below)
+- `date` — ISO date string
+- `platformType` — source platform (see platform types below)
+
+### Step 4: Render
+
+Build UI components using the fetched data. What to render depends on the user's needs — a full review listing, just a score badge, a tree counter, or any combination.
+
+Use the user's framework and match existing code patterns. For React — create components, for Vue — use templates, for static HTML — use semantic markup with minimal JavaScript. Do not default to building DOM entirely through JavaScript unless the project already does this.
+
+**Security:** API data includes user-generated content (review text, names) from external platforms. Never render it via `innerHTML` or other methods that allow HTML injection. Use safe methods: `textContent` in vanilla JS, `{{ }}` in Vue, `{}` in JSX (React escapes by default). For structured review text that may contain HTML formatting, sanitize it before rendering.
+
+### Review Text Structure
+
+Reviews can have two formats:
+
+- **Simple:** `text` field contains the full review text as a string
+- **Structured:** `texts[]` and/or `ratings[]` arrays — review broken down by topics. Each element has `id` (topic key) and `text` (may contain basic HTML formatting — sanitize before rendering).
+
+A review may have `texts` only, `ratings` only, or both — combine them when rendering. When rendering, check for `texts`/`ratings` arrays first. If present, render each topic with its heading and text. If neither array is present, fall back to the plain `text` field.
+
+See [references/api.md](references/api.md) for the full list of topic keys and their display labels.
+
+### Platform Types
+
+| Type | Display Name | Category |
+|------|-------------|----------|
+| `google` | Google | Business |
+| `facebook` | Facebook | Business |
+| `trustpilot` | Trustpilot | Business |
+| `amazon` | Amazon | Product |
+| `kununu` | Kununu | Employee |
+| `glassdoor` | Glassdoor | Employee |
+| `applePodcasts` | Apple Podcasts | Business |
+| `g2` | G2 | Business |
+| `gartner` | Gartner | Business |
+| `provenexpert` | ProvenExpert | Business |
+| `appleappstore` | App Store | Application |
+| `googleplaystore` | Google Play | Application |
+| `trustedshops` | Trusted Shops | Business |
+| `reviewforest` | ReviewForest Direct | Business |
+| `omr` | OMR | Business |
+
+### Platform Logos
+
+To show platform logos, map `platformType` to domain and use Google's favicon service:
+
+```
+https://www.google.com/s2/favicons?domain=DOMAIN&sz=SIZE
+```
+
+| Platform Type | Domain |
+|--------------|--------|
+| `google` | google.com |
+| `facebook` | facebook.com |
+| `trustpilot` | trustpilot.com |
+| `amazon` | amazon.com |
+| `kununu` | kununu.com |
+| `glassdoor` | glassdoor.com |
+| `applePodcasts` | podcasts.apple.com |
+| `g2` | g2.com |
+| `gartner` | gartner.com |
+| `provenexpert` | provenexpert.com |
+| `appleappstore` | apps.apple.com |
+| `googleplaystore` | play.google.com |
+| `trustedshops` | trustedshops.com |
+| `omr` | omr.com |
+
+### Example (Reference Only)
+
+This is a minimal reference for correct API usage patterns. Do not copy-paste — adapt to the user's framework and project structure.
+
+```javascript
+// Fetch forest data and reviews
+const API = 'https://api.reviewforest.org/v1';
+const headers = { apikey: 'USER_API_KEY' };
+
+const forest = await fetch(`${API}/forests/${forestId}`, { headers }).then(r => r.json());
+const { data: reviews } = await fetch(`${API}/forests/${forestId}/reviews?pageSize=10&showReviewOnlyWithText=true`, { headers }).then(r => r.json());
+
+// forest.score, forest.reviewAmount, forest.totalTreeAmount, forest.slug
+// forest.platforms[].type, forest.platforms[].typeDisplayName, forest.platforms[].score
+
+// reviews[].name, reviews[].score, reviews[].text, reviews[].title
+// reviews[].texts[] / reviews[].ratings[] — structured, sanitize HTML before rendering
+// reviews[].platformType
+```
+
+### Design Guidance
+
+- **CORS:** The API supports CORS — call endpoints directly from browser JavaScript, no backend proxy needed
+- **Platform name:** Use `platforms[].typeDisplayName` for the human-readable platform name, NOT `platforms[].name` which is the business listing name
+- **Forest link:** Always link to the forest page: `https://reviewforest.org/{slug}`
+- **Star ratings:** 1-5 per review; aggregate `score` on the forest (e.g. "4.8")
