@@ -182,8 +182,54 @@ See [references/api.md](references/api.md) for the full list of topic keys and t
 | `reviewforest` | ReviewForest Direct | Business |
 | `omr` | OMR | Business |
 
+### Platform Logos
+
+To show platform logos, map `platformType` to domain and use Google's favicon service:
+
+```
+https://www.google.com/s2/favicons?domain=DOMAIN&sz=SIZE
+```
+
+| Platform Type | Domain |
+|--------------|--------|
+| `google` | google.com |
+| `facebook` | facebook.com |
+| `trustpilot` | trustpilot.com |
+| `amazon` | amazon.com |
+| `kununu` | kununu.com |
+| `glassdoor` | glassdoor.com |
+| `applePodcasts` | podcasts.apple.com |
+| `g2` | g2.com |
+| `gartner` | gartner.com |
+| `provenexpert` | provenexpert.com |
+| `appleappstore` | apps.apple.com |
+| `googleplaystore` | play.google.com |
+| `trustedshops` | trustedshops.com |
+| `omr` | omr.com |
+
+### Example (Reference Only)
+
+This is a minimal reference for correct API usage patterns. Do not copy-paste — adapt to the user's framework and project structure.
+
+```javascript
+// Fetch forest data and reviews
+const API = 'https://api.reviewforest.org/v1';
+const headers = { apikey: 'USER_API_KEY' };
+
+const forest = await fetch(`${API}/forests/${forestId}`, { headers }).then(r => r.json());
+const { data: reviews } = await fetch(`${API}/forests/${forestId}/reviews?pageSize=10&showReviewOnlyWithText=true`, { headers }).then(r => r.json());
+
+// forest.score, forest.reviewAmount, forest.totalTreeAmount, forest.slug
+// forest.platforms[].type, forest.platforms[].typeDisplayName, forest.platforms[].score
+
+// reviews[].name, reviews[].score, reviews[].text, reviews[].title
+// reviews[].texts[] / reviews[].ratings[] — structured, sanitize HTML before rendering
+// reviews[].platformType
+```
+
 ### Design Guidance
 
+- **CORS:** The API supports CORS — call endpoints directly from browser JavaScript, no backend proxy needed
 - **Platform name:** Use `platforms[].typeDisplayName` for the human-readable platform name, NOT `platforms[].name` which is the business listing name
 - **Forest link:** Always link to the forest page: `https://reviewforest.org/{slug}`
 - **Star ratings:** 1-5 per review; aggregate `score` on the forest (e.g. "4.8")
