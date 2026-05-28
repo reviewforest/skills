@@ -100,6 +100,7 @@ Clarify with the user what they want to show. Available data:
 - **Tree count** — total, from reviews, additional, or broken down by period
 - **Platform info** — connected platforms with per-platform scores and review counts
 - **Individual reviews** — reviewer name, score, text, date, platform
+- **Individual trees** — a feed of planted trees: planter name, date, and either the source review (score/text/platform) or the occasion for manually planted ones
 - **Forest link** — link to the public forest page
 
 If showing individual reviews, ask about:
@@ -167,9 +168,29 @@ Key fields from each review:
 - `date` — ISO date string
 - `platformType` — source platform (see platform types below)
 
-### Step 4: Render
+### Step 4: Get Trees (optional)
 
-Build UI components using the fetched data. What to render depends on the user's needs — a full review listing, just a score badge, a tree counter, or any combination.
+```
+GET https://api.reviewforest.org/v1/forests/{forestId}/trees
+```
+
+Only needed if the user wants to display the individual planted trees (a "tree feed") rather than just the aggregate tree counts from Step 2.
+
+Returns `{ query, count, data: [Tree, ...] }`.
+
+Query params: `sortBy` (date/name), `order` (asc/desc), `pageSize` (10/15/20/25/50/100), `page`.
+
+Each tree has a `type`:
+- **`review`** — planted from a review. Has `name` (planter), `date`, `score`, `title`, `text` (and possibly `texts[]`/`ratings[]`), `platformType`, and `url` (link to the original review on the source platform).
+- **`additionalTree`** — manually planted. Has `name`, `date`, and `occasion` instead of review data.
+
+Both also include `pageTreeUrl` (link to the tree on the forest page) and `plantingProject` (project name). `text` is user-generated content — the same XSS rules in Step 5 apply.
+
+See [references/api.md](references/api.md) for the full Tree object.
+
+### Step 5: Render
+
+Build UI components using the fetched data. What to render depends on the user's needs — a full review listing, a tree feed, just a score badge, a tree counter, or any combination.
 
 Use the user's framework and match existing code patterns. For React — create components, for Vue — use templates, for static HTML — use semantic markup with minimal JavaScript. Do not default to building DOM entirely through JavaScript unless the project already does this.
 
