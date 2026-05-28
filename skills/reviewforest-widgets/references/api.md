@@ -41,6 +41,8 @@ Paginated responses include:
 
 List all forests for the authenticated account.
 
+When letting a user choose a forest, request `pageSize=100` first. If `count` is still larger than the number of returned items, fetch additional pages until you have the full list.
+
 **Query Parameters:**
 
 | Parameter | Type | Default | Values |

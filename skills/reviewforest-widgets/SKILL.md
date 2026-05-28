@@ -102,12 +102,14 @@ If showing individual reviews, ask about:
 ### Step 1: Get Forest ID
 
 ```
-GET https://api.reviewforest.org/v1/forests
+GET https://api.reviewforest.org/v1/forests?pageSize=100&page=1
 ```
 
 Returns `{ query, count, data: [Forest, ...] }`. Each forest has an `id` (string) needed for subsequent requests.
 
-If the user has one forest, use it automatically. If multiple, show the list (use `name` to identify) and let the user choose.
+Always request `pageSize=100` when listing forests. If `count` is greater than the number of items returned, fetch additional pages until you have the full list.
+
+If the user has one forest overall, use it automatically. If multiple, show the complete list (use `name` to identify) and let the user choose.
 
 Query params: `sortBy` (createdAt/name/score/reviewAmount/totalTreeAmount), `order` (asc/desc), `pageSize` (10/15/20/25/50/100), `page`.
 
@@ -220,6 +222,7 @@ https://www.google.com/s2/favicons?domain=DOMAIN&sz=SIZE
 | `appleappstore` | apps.apple.com |
 | `googleplaystore` | play.google.com |
 | `trustedshops` | trustedshops.com |
+| `reviewforest` | reviewforest.org |
 | `omr` | omr.com |
 
 ### Example (Reference Only)
