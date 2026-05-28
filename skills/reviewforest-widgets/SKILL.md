@@ -20,7 +20,7 @@ Integrate ReviewForest review widgets into any website. Two approaches:
 Ask the user which approach they want:
 
 - **Widget embed** — the user creates a widget at https://app.reviewforest.org/website-widgets/add (or copies the snippet from an existing one at https://app.reviewforest.org/website-widgets/installed), then provides the embed snippet (or just the UUID). See **Approach 1**.
-- **Custom rendering** — the user creates an API key (read-only mode) at https://app.reviewforest.org/integrations/public-api. See **Approach 2**. Detailed API reference: [references/api.md](references/api.md)
+- **Custom rendering** — the user creates an API key with the **Website-Widgets** scope at https://app.reviewforest.org/integrations/public-api. See **Approach 2**. Detailed API reference: [references/api.md](references/api.md)
 
 ## Approach 1: Widget Embed (Recommended)
 
@@ -76,7 +76,14 @@ Fetch data from the ReviewForest API and render reviews in the user's framework.
 
 The user needs an API key. Create one at https://app.reviewforest.org/integrations/public-api
 
-**Important:** When creating the API key, select **read-only** mode. A read-only key is safe to use in client-side JavaScript since it can only read data, not modify anything.
+**Important:** When creating the API key, select the **Website-Widgets** scope. This scope only exposes the read-only endpoints widgets need, so the key is safe to use in client-side JavaScript and cannot reach the rest of the user's data. The key will be visible in the page source — that's expected and safe with this scope.
+
+The scope grants read-only access to exactly these endpoints — use only these:
+
+- `GET /v1/forests`
+- `GET /v1/forests/{forestId}`
+- `GET /v1/forests/{forestId}/reviews`
+- `GET /v1/forests/{forestId}/trees`
 
 All API requests require the `apikey` header:
 
@@ -129,7 +136,7 @@ Key fields:
 - `totalTreeAmount` — total trees planted
 - `reviewTreeAmount` — trees from reviews
 - `additionalTreeAmount` — manually planted trees
-- `treeNumbers` — tree counts by period (`thisWeek`, `thisMonth`, `thisYear`, `lastWeek`, `lastMonth`, `lastYear`)
+- `treeNumbers` — tree counts by period (`thisPeriod`, `thisWeek`, `thisMonth`, `thisYear`, `lastPeriod`, `lastWeek`, `lastMonth`, `lastYear`)
 - `platforms[]` — connected platforms, each with:
   - `type` — platform identifier (e.g. "google")
   - `typeDisplayName` — human-readable platform name (e.g. "Google")
@@ -166,7 +173,7 @@ Build UI components using the fetched data. What to render depends on the user's
 
 Use the user's framework and match existing code patterns. For React — create components, for Vue — use templates, for static HTML — use semantic markup with minimal JavaScript. Do not default to building DOM entirely through JavaScript unless the project already does this.
 
-**Security:** API data includes user-generated content (review text, names) from external platforms. Never render it via `innerHTML` or other methods that allow HTML injection. Use safe methods: `textContent` in vanilla JS, `{{ }}` in Vue, `{}` in JSX (React escapes by default). For structured review text that may contain HTML formatting, sanitize it before rendering.
+**Security:** API data includes user-generated content (review text, names) from external platforms. Never render it via `innerHTML` or other methods that allow HTML injection. Use safe methods: `textContent` in vanilla JS, `{{ }}` in Vue, `{}` in JSX (React escapes by default). Structured review text may contain basic HTML formatting — if you don't need that formatting, render it as plain text. If you do want to keep it, sanitize first with a library like [DOMPurify](https://github.com/cure53/DOMPurify), then pass the sanitized output to `v-html` (Vue) or `dangerouslySetInnerHTML` (React). Never feed raw API text into those APIs.
 
 ### Review Text Structure
 

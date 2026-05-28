@@ -12,7 +12,14 @@ All endpoints require the `apikey` header:
 apikey: YOUR_API_KEY
 ```
 
-Create an API key at https://app.reviewforest.org/integrations/public-api. Use **read-only** mode for client-side JavaScript.
+Create an API key at https://app.reviewforest.org/integrations/public-api. Select the **Website-Widgets** scope — it exposes only the read-only endpoints widgets need, keeping the key safe for client-side JavaScript and unable to reach the user's other data.
+
+The **Website-Widgets** scope grants read-only access to exactly these endpoints, and nothing else:
+
+- `GET /v1/forests`
+- `GET /v1/forests/{forestId}`
+- `GET /v1/forests/{forestId}/reviews`
+- `GET /v1/forests/{forestId}/trees`
 
 ## Pagination
 
@@ -367,26 +374,6 @@ Key notes:
 - Additional trees have `occasion` instead of review data.
 - `pageTreeUrl` — link to the tree on the ReviewForest forest page.
 - `url` — direct link to the original review on the source platform (only on review trees).
-
----
-
-## POST /v1/forests/{forestId}/trees
-
-Plant additional trees.
-
-**Request Body:**
-
-```json
-{
-  "quantity": 5,
-  "names": ["Alice", "Bob"],
-  "occasion": "Team milestone"
-}
-```
-
-All fields are optional. `quantity` defaults to 1.
-
-**Response:** Array of planted tree objects.
 
 ---
 
