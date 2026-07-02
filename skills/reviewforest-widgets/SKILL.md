@@ -17,10 +17,10 @@ Integrate ReviewForest review widgets into any website. Two approaches:
 
 ## Getting Started
 
-Ask the user which approach they want:
+Confirm the approach (default: **widget embed**) and collect the matching prerequisite:
 
 - **Widget embed** — the user creates a widget at https://app.reviewforest.org/website-widgets/add (or copies the snippet from an existing one at https://app.reviewforest.org/website-widgets/installed), then provides the embed snippet (or just the UUID). See **Approach 1**.
-- **Custom rendering** — the user creates an API key with the **Website-Widgets** scope at https://app.reviewforest.org/integrations/public-api. See **Approach 2**. Detailed API reference: [references/api.md](references/api.md)
+- **Custom rendering** — the user creates an API key with the **website display** scope at https://app.reviewforest.org/integrations/public-api. See **Approach 2**. Detailed API reference: [references/api.md](references/api.md)
 
 ## Approach 1: Widget Embed (Recommended)
 
@@ -76,7 +76,7 @@ Fetch data from the ReviewForest API and render reviews in the user's framework.
 
 The user needs an API key. Create one at https://app.reviewforest.org/integrations/public-api
 
-**Important:** When creating the API key, select the **Website-Widgets** scope. This scope only exposes the read-only endpoints widgets need, so the key is safe to use in client-side JavaScript and cannot reach the rest of the user's data. The key will be visible in the page source — that's expected and safe with this scope.
+**Important:** When creating the API key, choose the **website display** scope (the dedicated read-only scope for public website widgets — **not** "Full access"). It is restricted server-side to exactly the four forest read endpoints below (any other request returns `403`), and sensitive fields (billing, email, platform OAuth tokens, tree invoice numbers) are stripped from its responses. Because of that, the key is safe to use in client-side JavaScript — it will be visible in the page source, which is expected and safe with this scope.
 
 The scope grants read-only access to exactly these endpoints — use only these:
 
@@ -145,6 +145,8 @@ Key fields:
   - `score` — platform-specific rating
   - `reviewAmount` — reviews on that platform
 
+**Brand forests:** if the forest's `type` is `"brand"` it has **no** `platforms`/`platformsOrder`. Instead it returns a `channels[]` array — each channel is itself a forest object (with its own `platforms[]`). Guard for this before reading `platforms` (e.g. `(forest.platforms ?? forest.channels?.flatMap(c => c.platforms) ?? [])`), or stick to single forests. Regular forests have `type: "single"`.
+
 ### Step 3: Get Reviews (optional)
 
 ```
@@ -162,11 +164,12 @@ Ask the user how they want reviews sorted and whether to show only reviews with 
 Key fields from each review:
 - `name` — reviewer display name
 - `score` — 1-5 star rating (integer)
-- `title` — review title (may be null)
 - `text` — review text (may be null)
-- `texts[]` / `ratings[]` — structured review (see Review Text Structure below)
 - `date` — ISO date string
 - `platformType` — source platform (see platform types below)
+- `url` — link to the review on the ReviewForest forest page
+
+This endpoint returns the plain `text` only — it does **not** return `title` or the structured `texts[]`/`ratings[]` breakdown. For structured-review platforms (Kununu, Glassdoor, G2) `text` is often null here; the topic-by-topic content is available instead on review-type **trees** (Step 4). See [Review Text Structure](#review-text-structure).
 
 ### Step 4: Get Trees (optional)
 
@@ -198,12 +201,12 @@ Use the user's framework and match existing code patterns. For React — create 
 
 ### Review Text Structure
 
-Reviews can have two formats:
+Review content comes in two formats. **Note:** only the plain `text` form is returned by the `/reviews` endpoint. The structured form is available on review-type **trees** (from the `/trees` endpoint) and on the widget-embed data — so to render a topic-by-topic breakdown, read it from the trees feed.
 
 - **Simple:** `text` field contains the full review text as a string
-- **Structured:** `texts[]` and/or `ratings[]` arrays — review broken down by topics. Each element has `id` (topic key) and `text` (may contain basic HTML formatting — sanitize before rendering).
+- **Structured:** `texts[]` and/or `ratings[]` arrays — the review broken down by topics. Each element has `id` (topic key) and `text` (may contain basic HTML formatting — sanitize before rendering).
 
-A review may have `texts` only, `ratings` only, or both — combine them when rendering. When rendering, check for `texts`/`ratings` arrays first. If present, render each topic with its heading and text. If neither array is present, fall back to the plain `text` field.
+An item may have `texts` only, `ratings` only, or both — combine them when rendering. Check for `texts`/`ratings` arrays first; if present, render each topic with its heading and text. If neither array is present, fall back to the plain `text` field.
 
 See [references/api.md](references/api.md) for the full list of topic keys and their display labels.
 
@@ -217,14 +220,14 @@ See [references/api.md](references/api.md) for the full list of topic keys and t
 | `amazon` | Amazon | Product |
 | `kununu` | Kununu | Employee |
 | `glassdoor` | Glassdoor | Employee |
-| `applePodcasts` | Apple Podcasts | Business |
+| `applepodcasts` | Apple Podcasts | Business |
 | `g2` | G2 | Business |
 | `gartner` | Gartner | Business |
 | `provenexpert` | ProvenExpert | Business |
 | `appleappstore` | App Store | Application |
 | `googleplaystore` | Google Play | Application |
 | `trustedshops` | Trusted Shops | Business |
-| `reviewforest` | ReviewForest Direct | Business |
+| `reviewforest` | ReviewForest | Business |
 | `omr` | OMR | Business |
 
 ### Platform Logos
@@ -243,7 +246,7 @@ https://www.google.com/s2/favicons?domain=DOMAIN&sz=SIZE
 | `amazon` | amazon.com |
 | `kununu` | kununu.com |
 | `glassdoor` | glassdoor.com |
-| `applePodcasts` | podcasts.apple.com |
+| `applepodcasts` | podcasts.apple.com |
 | `g2` | g2.com |
 | `gartner` | gartner.com |
 | `provenexpert` | provenexpert.com |
@@ -262,20 +265,26 @@ This is a minimal reference for correct API usage patterns. Do not copy-paste �
 const API = 'https://api.reviewforest.org/v1';
 const headers = { apikey: 'USER_API_KEY' };
 
-const forest = await fetch(`${API}/forests/${forestId}`, { headers }).then(r => r.json());
-const { data: reviews } = await fetch(`${API}/forests/${forestId}/reviews?pageSize=10&showReviewOnlyWithText=true`, { headers }).then(r => r.json());
+// Independent requests — fetch in parallel. Check res.ok in real code; on 401/404
+// the forest may be missing, so hide the section rather than rendering "undefined".
+const [forest, { data: reviews }] = await Promise.all([
+  fetch(`${API}/forests/${forestId}`, { headers }).then(r => r.json()),
+  fetch(`${API}/forests/${forestId}/reviews?pageSize=10&showReviewOnlyWithText=true`, { headers }).then(r => r.json()),
+]);
 
 // forest.score, forest.reviewAmount, forest.totalTreeAmount, forest.slug
 // forest.platforms[].type, forest.platforms[].typeDisplayName, forest.platforms[].score
+// (brand forests have no forest.platforms — use forest.channels[] instead)
 
-// reviews[].name, reviews[].score, reviews[].text, reviews[].title
-// reviews[].texts[] / reviews[].ratings[] — structured, sanitize HTML before rendering
-// reviews[].platformType
+// reviews[].name, reviews[].score, reviews[].text, reviews[].date, reviews[].platformType, reviews[].url
+// (structured texts[]/ratings[] come from the /trees endpoint, not /reviews)
 ```
 
 ### Design Guidance
 
 - **CORS:** The API supports CORS — call endpoints directly from browser JavaScript, no backend proxy needed
-- **Platform name:** Use `platforms[].typeDisplayName` for the human-readable platform name, NOT `platforms[].name` which is the business listing name
+- **Platform name:** Prefer the API's `platforms[].typeDisplayName` for the human-readable platform name, NOT `platforms[].name` (the business listing name). If you map platform types yourself, fall back to capitalizing the raw `platformType` for any type not in the table above — the platform list grows over time
+- **Error handling:** Check `res.ok`. The forest endpoints return `401` (missing/invalid key), `404` (unknown forest), or `400` (malformed id). On error, hide the widget rather than rendering `undefined`
+- **Caching:** Review data changes infrequently. On static/SSR frameworks (Next.js, Astro, Nuxt) fetch at build time or server-side and revalidate periodically instead of on every page view; for pure client-side sites, a short `sessionStorage` cache avoids refetching on each navigation
 - **Forest link:** Always link to the forest page: `https://reviewforest.org/{slug}`
 - **Star ratings:** 1-5 per review; aggregate `score` on the forest (e.g. "4.8")
