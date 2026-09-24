@@ -21,6 +21,16 @@ The **Website-Widgets** scope grants read-only access to exactly these endpoints
 - `GET /v1/forests/{forestId}/reviews`
 - `GET /v1/forests/{forestId}/trees`
 
+### Set your own User-Agent
+
+In server-side code, always send a descriptive `User-Agent` header instead of the HTTP library's default:
+
+```python
+req = urllib.request.Request(url, headers={"apikey": API_KEY, "User-Agent": "my-website/1.0"})
+```
+
+`api.reviewforest.org` sits behind Cloudflare, which can reject generic library defaults such as `Python-urllib/3.x` with HTTP 403 and the body `error code: 1010`. That response comes from Cloudflare, not the API, so it is not a key or scope problem.
+
 ## Pagination
 
 All list endpoints support pagination via query parameters:
