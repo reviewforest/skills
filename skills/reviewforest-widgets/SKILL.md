@@ -57,7 +57,7 @@ The dashboard may offer widget types this table doesn't list yet. For an unliste
 
 Badge widgets (Review score badge, Tree counter badge, 2-in-1 badge) support two behaviors, configured in the dashboard. Ask the user which behavior they chose:
 
-- **Floating:** The badge floats over the page in a bottom corner of the browser window (left or right, set in the dashboard). Its `<div>` can go anywhere inside `<body>`. Right before the closing `</body>` tag is the easiest spot, and it keeps the badge out of containers whose CSS (`transform`, `filter` or `contain`, for example) would pin a floating element to that container instead of the window.
+- **Floating:** Place the `<div>` right before the closing `</body>` tag. The badge then floats over the page in a bottom corner of the browser window (left or right, set in the dashboard). The `<div>` may also sit anywhere else inside `<body>`, as long as none of its parent elements has CSS such as `transform`, `filter`, `contain` or `container-type`, which would pin the badge to that element instead of the window.
 - **Fixed position:** Place the `<div>` exactly where the user wants it in the page layout.
 
 ### Multiple Widgets
@@ -76,7 +76,7 @@ If the site sends a Content Security Policy (a `Content-Security-Policy` header 
 
 - `script-src`: `https://widgets.reviewforest.org`
 - `connect-src`: `https://api.reviewforest.org` (widget data) and `https://cdn.comvi.io` (widget texts)
-- `img-src`, if the policy restricts it: `https://widgets.reviewforest.org` (platform logos and icons) and the hosts of reviewers' profile photos. Today the photos load straight from the review platforms (Google's from `https://lh3.googleusercontent.com`); after an upcoming ReviewForest release they load from `https://api.reviewforest.org`. Allow `https://api.reviewforest.org` now so photos keep working after the switch.
+- `img-src`, if the policy restricts it: `https://widgets.reviewforest.org` (platform logos and icons) and the hosts of reviewers' profile photos. Today the photos load straight from Google and Facebook (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`); after an upcoming ReviewForest release they all load from `https://api.reviewforest.org`. Allow both now so photos keep working across the switch; after the release `https://api.reviewforest.org` alone is enough.
 - The review forest page widget also loads a Mapbox map, more images and its own styles, so a strict policy needs more for it. Load the page and check the browser console for blocked requests.
 
 ## Approach 2: Custom Rendering via API
@@ -85,9 +85,9 @@ Fetch data from the ReviewForest API and render reviews in the user's framework.
 
 ### Prerequisites
 
-The user needs an API key with the access type **Website-Widgets**. At https://app.reviewforest.org/integrations/public-api they click **Create new key**, set **Type of data access** to **Website-Widgets** (the default is Read-only) and click **Create key**. The account has to be activated first; the dashboard asks for it otherwise.
+The user needs an API key with the access type **Website-Widgets**. At https://app.reviewforest.org/integrations/public-api they click **Create new key**, set **Type of data access** to **Website-Widgets** (the default is Read-only) and click **Create key**. The account has to be activated first (plan chosen, payment details added); the dashboard asks for it otherwise.
 
-**What this key can do:** it only reads, and only seven `GET` routes: the four forest routes below and three widget routes (`/v1/widgets`, `/v1/widgets/{uuid}`, `/v1/widgets/{uuid}/reviews`). Everything else is refused with `401` or `403`. That's why it may sit in client-side JavaScript, where it is visible in the page source.
+**What this key can do:** it only reads, and only seven `GET` routes: the four forest routes below and three widget routes (`/v1/widgets`, `/v1/widgets/{uuid}`, `/v1/widgets/{uuid}/reviews`). Every other route that needs a key answers it with `401` or `403`, so it can't write anything or reach invoices and account details. That's why it may sit in client-side JavaScript, where it is visible in the page source. (Each call to `/v1/widgets/{uuid}` counts as an impression of that widget, so don't poll it.)
 
 **What that means:** anyone who copies the key from the page can call those routes too, for **every** review forest in the account, not just the one on the page. They get forest names, scores and counts, display settings, connected platforms, reviews, the tree feed with reviewer names and photos, and the widget settings. The responses leave out email addresses, billing references and the access tokens of connected Google and Facebook accounts. If the account has forests that shouldn't be public, fetch the data on the server or at build time (see **Caching** below) and keep the key out of the browser.
 
@@ -100,7 +100,7 @@ The custom rendering in this skill uses these four routes:
 - `GET /v1/forests/{forestId}/reviews`
 - `GET /v1/forests/{forestId}/trees`
 
-All API requests require the `apikey` header:
+Requests to these routes need the key in the `apikey` header (`GET /v1/widgets/{uuid}/reviews` is the one route above that also answers without it):
 
 ```
 apikey: YOUR_API_KEY
@@ -302,7 +302,8 @@ const [forest, { data: reviews }] = await Promise.all([
 - **CORS:** The API supports CORS — call endpoints directly from browser JavaScript, no backend proxy needed
 - **Platform name:** Prefer the API's `platforms[].typeDisplayName` for the human-readable platform name, NOT `platforms[].name` (the business listing name). If you map platform types yourself, fall back to capitalizing the raw `platformType` for any type not in the table above — the platform list grows over time
 - **Error handling:** Check `res.ok`. The forest endpoints return `401` (missing/invalid key), `404` (unknown forest, or one from another account), or `400` (malformed id). On error, hide the widget rather than rendering `undefined`
-- **Content Security Policy:** if the site has one, `connect-src https://api.reviewforest.org` covers the API calls. Reviewer photos (`profilePicture` on review trees) also need `img-src`: today they load from the platforms' own image servers (Google's from `https://lh3.googleusercontent.com`), after an upcoming ReviewForest release from `https://api.reviewforest.org`. Allow `https://api.reviewforest.org` now, or leave the photos out. Platform logos from Google's favicon service need `img-src https://www.google.com https://*.gstatic.com` (it redirects there)
+- **Display settings:** apply the forest's `displaySettings` the way the embed widgets do. If `showReviewerInitialOnly` is true, show only the reviewer's initials instead of `name`; if `showReviewTextAndScore` is false, leave out the review text and stars. The API returns full names either way, so this is up to your code
+- **Content Security Policy:** if the site has one, `connect-src https://api.reviewforest.org` covers the API calls. Reviewer photos (`profilePicture` on review trees) also need `img-src`: today they load from Google's and Facebook's image servers (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`), after an upcoming ReviewForest release from `https://api.reviewforest.org`. Allow both now, or leave the photos out. Platform logos from Google's favicon service need `img-src https://www.google.com https://*.gstatic.com` (it redirects there)
 - **Caching:** Review data changes infrequently. On static/SSR frameworks (Next.js, Astro, Nuxt) fetch at build time or server-side and revalidate periodically instead of on every page view; for pure client-side sites, a short `sessionStorage` cache avoids refetching on each navigation
 - **Forest link:** Always link to the forest page: `https://reviewforest.org/{slug}`
 - **Star ratings:** 1-5 per review; aggregate `score` on the forest (e.g. "4.8")

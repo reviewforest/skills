@@ -14,7 +14,7 @@ apikey: YOUR_API_KEY
 
 ### The Website-Widgets key
 
-For website code, use a key with the access type **Website-Widgets**. Create it at https://app.reviewforest.org/integrations/public-api: click **Create new key**, set **Type of data access** to **Website-Widgets** (the default is **Read-only**), then click **Create key**. The account has to be activated first; the dashboard asks for it otherwise. The key list shows each key's type in the **Data access** column. In the API this access type is the scope `website-display`.
+For website code, use a key with the access type **Website-Widgets**. Create it at https://app.reviewforest.org/integrations/public-api: click **Create new key**, set **Type of data access** to **Website-Widgets** (the default is **Read-only**), then click **Create key**. The account has to be activated first (plan chosen, payment details added); the dashboard asks for it otherwise. The key list shows each key's type in the **Data access** column. In the API this access type is the scope `website-display`.
 
 A Website-Widgets key can only read, and only these seven routes:
 
@@ -28,7 +28,7 @@ A Website-Widgets key can only read, and only these seven routes:
 | `GET /v1/widgets/{uuid}` | one widget's settings and summary data |
 | `GET /v1/widgets/{uuid}/reviews` | the reviews one widget shows, after its dashboard filters. Public: it answers without any key |
 
-Every other request, to another route or with a method other than `GET`, is refused with `401` or `403`. The custom rendering in the skill needs only the four forest routes. If you do call `GET /v1/widgets/{uuid}`, each call counts as an impression of that widget, so don't poll it.
+Any other route that needs a key answers this one with `401` or `403`. It can't write either: wherever a key is needed, methods other than `GET` get `403`. The custom rendering in the skill needs only the four forest routes. If you do call `GET /v1/widgets/{uuid}`, each call counts as an impression of that widget, so don't poll it.
 
 For this key type the responses leave out email addresses, billing and subscription references, and the access tokens and owner details of connected Google and Facebook accounts. Trees come without `invoiceNumber` and `unPaid`. Everything else the seven routes return stays readable: forest names and slugs, scores and counts, display settings, connected platforms with their listing IDs (`platforms[].keys`), reviews, trees with reviewer names and photos, and widget settings.
 
@@ -220,6 +220,7 @@ Key notes:
 - `type`: "single" (regular forest) or "brand" (brand forest combining multiple forests). **Brand forests have no `platforms`/`platformsOrder`** — instead they return a `channels[]` array, where each channel is itself a forest object (with its own `platforms[]`). Guard for `platforms` being absent before iterating it.
 - `reviewAmount` — reviews imported into ReviewForest; `reviewAmountOnPlatform` — total reviews on the source platform(s). Both exist at forest level and per platform.
 - `plantingReviewLimit`: -1 means unlimited.
+- `displaySettings.showReviewerInitialOnly` and `displaySettings.showReviewTextAndScore` are the customer's choices for how reviews appear. The embed widgets show initials instead of the full name when the first is true, and hide review text and stars when the second is false. The API returns full names and texts either way, so custom rendering has to apply both settings itself.
 - `displaySettings.logo` — the customer's logo uploaded for their forest page. Can be a string URL or an object with `variants` (keys: `emailLogo`, `public`, `pageLogo`). Use `variants.pageLogo` for display.
 - `platforms[].keys` — platform-specific identifiers. Different per platform type: `placeId` (Google), `companyWebsite` (Trustpilot), `fbPageId` (Facebook), etc.
 
@@ -320,7 +321,7 @@ Key notes:
 - Tree `type` is either `"review"` (planted from a review) or `"additionalTree"` (manually planted).
 - The feed is not a complete review list: it holds only the reviews that planted a tree (a forest can pause or cap planting), plus the manually planted trees. For all reviews use `GET /v1/forests/{forestId}/reviews`.
 - Review trees have `score`, `text`, `title`, `platformType`, and `url` (link to the original review on the source platform). They may also carry `texts[]`/`ratings[]` for structured reviews — see [Structured review text](#structured-review-text) below.
-- Review trees can also have `profilePicture`, the reviewer's photo URL, when the platform provides one (Google, Google Play and Facebook reviews). Today it points at the platform's own image server, for Google `https://lh3.googleusercontent.com`. After an upcoming ReviewForest release it points at `https://api.reviewforest.org` instead, and photos from other hosts are left out. If the page has a Content Security Policy that restricts `img-src`, allow `https://api.reviewforest.org` there now, plus the platform hosts for as long as photos come from them.
+- Review trees can also have `profilePicture`, the reviewer's photo URL, when the platform provides one (Google, Google Play and Facebook reviews). Today it points at Google's or Facebook's image servers (`*.googleusercontent.com`, `*.ggpht.com`, `*.fbcdn.net`, `*.fbsbx.com`). After an upcoming ReviewForest release it points at `https://api.reviewforest.org` instead, and photos from any other host are left out. If the page has a Content Security Policy that restricts `img-src`, allow `https://api.reviewforest.org` there now, plus those platform hosts for as long as photos come from them.
 - Additional trees have `occasion` instead of review data.
 - `pageTreeUrl` — link to the tree on the ReviewForest forest page.
 - `url` — direct link to the original review on the source platform (only on review trees).
