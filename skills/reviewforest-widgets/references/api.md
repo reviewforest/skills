@@ -259,7 +259,9 @@ List reviews for a forest.
 }
 ```
 
-Each review is exactly `{ name, score, text, date, platformType, url }`; `url` links to the review on the ReviewForest forest page. This endpoint returns the plain `text` only — it does **not** return `title` or the structured `texts[]`/`ratings[]` arrays. For employer and software platforms (Kununu, Glassdoor, G2) that plain `text` is a flattened or shortened version, or empty: Kununu reviews join their topics into one string with the topic keys in parentheses, Glassdoor reviews carry only the summary. The topic-by-topic content comes with review-type **trees** and with `GET /v1/widgets/{uuid}/reviews` — see [Structured review text](#structured-review-text) under the trees endpoint. `text` is `null` when the reviewer left a rating without written text.
+Each review is exactly `{ name, score, text, date, platformType, url }`; `url` links to the review on the ReviewForest forest page. This endpoint returns the plain `text` only — it does **not** return `title` or the structured `texts[]`/`ratings[]` arrays. For employer and software platforms (Kununu, Glassdoor, G2) that plain `text` is a flattened or shortened version, or empty: Kununu reviews join their topics into one string with the topic keys in parentheses, Glassdoor reviews carry only the summary. The topic-by-topic content comes with review-type **trees** and with `GET /v1/widgets/{uuid}/reviews` — see [Structured review text](#structured-review-text) under the trees endpoint. `text` is missing or `null` when the review has no plain text, for example a rating without written text, or an OMR review (OMR reviews have only structured text). `showReviewOnlyWithText=true` counts structured text as text, so such reviews can still appear in the filtered list without `text`; skip them client-side too.
+
+`score` is a number from 1 to 5 and can have a decimal (OMR reviews, for example, come in halves like 4.5).
 
 This is the complete review list of the forest. Use it, not the trees feed, when the user wants all reviews.
 

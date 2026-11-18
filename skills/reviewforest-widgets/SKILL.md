@@ -174,12 +174,12 @@ Returns `{ query, count, data: [Review, ...] }`.
 
 Query params: `sortBy` (date/name), `order` (asc/desc), `pageSize` (10/15/20/25/50/100), `page`, `showReviewOnlyWithText` (true/false — filter to only show reviews that have text).
 
-Ask the user how they want reviews sorted and whether to show only reviews with text.
+Ask the user how they want reviews sorted and whether to show only reviews with text. `showReviewOnlyWithText=true` also counts structured text, so a few reviews (OMR reviews, for example) still arrive without `text`; skip those in your code as well.
 
 Key fields from each review:
 - `name` — reviewer display name
-- `score` — 1-5 star rating (integer)
-- `text` — review text (may be null)
+- `score` — 1-5 star rating; can have a decimal (OMR reviews, for example, come in halves like 4.5)
+- `text` — review text (can be missing or null)
 - `date` — ISO date string
 - `platformType` — source platform (see platform types below)
 - `url` — link to the review on the ReviewForest forest page
@@ -306,4 +306,4 @@ const [forest, { data: reviews }] = await Promise.all([
 - **Content Security Policy:** if the site has one, `connect-src https://api.reviewforest.org` covers the API calls. Reviewer photos (`profilePicture` on review trees) also need `img-src`: today they load from Google's and Facebook's image servers (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`), after an upcoming ReviewForest release from `https://api.reviewforest.org`. Allow both now, or leave the photos out. Platform logos from Google's favicon service need `img-src https://www.google.com https://*.gstatic.com` (it redirects there)
 - **Caching:** Review data changes infrequently. On static/SSR frameworks (Next.js, Astro, Nuxt) fetch at build time or server-side and revalidate periodically instead of on every page view; for pure client-side sites, a short `sessionStorage` cache avoids refetching on each navigation
 - **Forest link:** Always link to the forest page: `https://reviewforest.org/{slug}`
-- **Star ratings:** 1-5 per review; aggregate `score` on the forest (e.g. "4.8")
+- **Star ratings:** 1-5 per review, sometimes with a decimal (render partial stars or round); aggregate `score` on the forest (e.g. "4.8")
