@@ -6,7 +6,7 @@ Full interactive documentation: https://reviewforest.org/apidoc/ | Swagger: http
 
 ## Authentication
 
-The endpoints in this reference require the `apikey` header (the one exception, `GET /v1/widgets/{uuid}/reviews`, is noted below):
+The forest endpoints in this reference require the `apikey` header:
 
 ```
 apikey: YOUR_API_KEY
@@ -28,7 +28,7 @@ A Website-Widgets key can only read, and only these seven routes:
 | `GET /v1/widgets/{uuid}` | one widget's settings and summary data |
 | `GET /v1/widgets/{uuid}/reviews` | the reviews one widget shows, after its dashboard filters. Public: it answers without any key |
 
-Any other route that needs a key answers this one with `401` or `403`. It can't write either: wherever a key is needed, methods other than `GET` get `403`. The custom rendering in the skill needs only the four forest routes. If you do call `GET /v1/widgets/{uuid}`, each call counts as an impression of that widget, so don't poll it.
+Any other route that needs a key answers this one with `401` or `403`. It can't write either: wherever a key is needed, methods other than `GET` get `403`. The custom rendering in the skill needs only the four forest routes. Two widget calls answer without any key, because the embed widgets make them from every visitor's browser: `GET /v1/widgets/{uuid}/reviews` and `GET /v1/widgets?uuids=…`. Each call to `GET /v1/widgets/{uuid}` or `GET /v1/widgets?uuids=…` counts as an impression of those widgets, so don't poll them.
 
 For this key type the responses leave out email addresses, billing and subscription references, and the access tokens and owner details of connected Google and Facebook accounts. Trees come without `invoiceNumber` and `unPaid`. Everything else the seven routes return stays readable: forest names and slugs, scores and counts, display settings, connected platforms with their listing IDs (`platforms[].keys`), reviews, trees with reviewer names and photos, and widget settings.
 
@@ -221,7 +221,7 @@ Key notes:
 - `reviewAmount` — reviews imported into ReviewForest; `reviewAmountOnPlatform` — total reviews on the source platform(s). Both exist at forest level and per platform.
 - `plantingReviewLimit`: -1 means unlimited.
 - `displaySettings.showReviewerInitialOnly` and `displaySettings.showReviewTextAndScore` are the customer's choices for how reviews appear. The embed widgets show initials instead of the full name when the first is true, and hide review text and stars when the second is false. The API returns full names and texts either way, so custom rendering has to apply both settings itself.
-- `displaySettings.logo` — the customer's logo uploaded for their forest page. Can be a string URL or an object with `variants` (keys: `emailLogo`, `public`, `pageLogo`). Use `variants.pageLogo` for display.
+- `displaySettings.logo` — URL of the customer's logo for their forest page (the API already resolves it to the page-logo version), or `null`. Use the string as-is.
 - `platforms[].keys` — platform-specific identifiers. Different per platform type: `placeId` (Google), `companyWebsite` (Trustpilot), `fbPageId` (Facebook), etc.
 
 ---

@@ -87,7 +87,7 @@ Fetch data from the ReviewForest API and render reviews in the user's framework.
 
 The user needs an API key with the access type **Website-Widgets**. At https://app.reviewforest.org/integrations/public-api they click **Create new key**, set **Type of data access** to **Website-Widgets** (the default is Read-only) and click **Create key**. The account has to be activated first (plan chosen, payment details added); the dashboard asks for it otherwise.
 
-**What this key can do:** it only reads, and only seven `GET` routes: the four forest routes below and three widget routes (`/v1/widgets`, `/v1/widgets/{uuid}`, `/v1/widgets/{uuid}/reviews`). Every other route that needs a key answers it with `401` or `403`, so it can't write anything or reach invoices and account details. That's why it may sit in client-side JavaScript, where it is visible in the page source. (Each call to `/v1/widgets/{uuid}` counts as an impression of that widget, so don't poll it.)
+**What this key can do:** it only reads, and only seven `GET` routes: the four forest routes below and three widget routes (`/v1/widgets`, `/v1/widgets/{uuid}`, `/v1/widgets/{uuid}/reviews`). Every other route that needs a key answers it with `401` or `403`, so it can't write anything or reach invoices and account details. That's why it may sit in client-side JavaScript, where it is visible in the page source. (Calls to `/v1/widgets/{uuid}` and `/v1/widgets?uuids=…` count as impressions of those widgets, so don't poll them.)
 
 **What that means:** anyone who copies the key from the page can call those routes too, for **every** review forest in the account, not just the one on the page. They get forest names, scores and counts, display settings, connected platforms, reviews, the tree feed with reviewer names and photos, and the widget settings. The responses leave out email addresses, billing references and the access tokens of connected Google and Facebook accounts. If the account has forests that shouldn't be public, fetch the data on the server or at build time (see **Caching** below) and keep the key out of the browser.
 
@@ -100,7 +100,7 @@ The custom rendering in this skill uses these four routes:
 - `GET /v1/forests/{forestId}/reviews`
 - `GET /v1/forests/{forestId}/trees`
 
-Requests to these routes need the key in the `apikey` header (`GET /v1/widgets/{uuid}/reviews` is the one route above that also answers without it):
+Requests to these four routes need the key in the `apikey` header:
 
 ```
 apikey: YOUR_API_KEY
