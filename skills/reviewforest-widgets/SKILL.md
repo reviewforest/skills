@@ -73,12 +73,12 @@ Include the script tag only once. Add multiple `<div>` elements with different U
 
 ### Content Security Policy
 
-If the site sends a Content Security Policy (a `Content-Security-Policy` header or `<meta http-equiv>` tag), extend it, or the widgets stay empty. Extend only the directives that actually block something the widgets need (the browser console names them); a policy with, say, only `frame-ancestors` needs nothing. When you add a directive the policy doesn't have yet, the browser stops falling back to `default-src` for it, so copy those sources in too: a policy with only `default-src 'self'` becomes, for example, `script-src 'self' https://widgets.reviewforest.org`, or the site's own scripts, requests and images break. If the policy also sets `script-src-elem` or `style-src-elem`, add the same sources there too, because those take precedence for `<script>` and `<style>` elements. If it uses a nonce with `'strict-dynamic'`, host sources don't let the loader run: put the page's per-response nonce on the `<script src="https://widgets.reviewforest.org/main.js">` tag.
+If the site sends a Content Security Policy (a `Content-Security-Policy` header or `<meta http-equiv>` tag), extend it, or the widgets stay empty. Extend only the directives that actually block something the widgets need (the browser console names them); a policy with, say, only `frame-ancestors` needs nothing. When you add a directive the policy doesn't have yet, the browser stops falling back to `default-src` for it, so copy those sources in too: a policy with only `default-src 'self'` becomes, for example, `script-src 'self' https://widgets.reviewforest.org`, or the site's own scripts, requests and images break. If the policy also sets `script-src-elem` or `style-src-elem`, those govern `<script>` and `<style>` elements, so make the change there, and only in the directive that governs the blocked resource: `'unsafe-inline'` for a version 1.0 widget's `<style>` goes into `style-src-elem` when the policy has it, not into `style-src`, where it would also allow inline style attributes on the whole page. If it uses a nonce with `'strict-dynamic'`, host sources don't let the loader run: put the page's per-response nonce on the `<script src="https://widgets.reviewforest.org/main.js">` tag.
 
 - `script-src`: `https://widgets.reviewforest.org`
 - `connect-src`: `https://api.reviewforest.org` (widget data) and `https://cdn.comvi.io` (widget texts)
 - `img-src`, if the policy restricts it: `https://widgets.reviewforest.org` (platform logos and icons) and the hosts of reviewers' profile photos. Today the photos load straight from Google and Facebook (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`); after an upcoming ReviewForest release they load from `https://api.reviewforest.org` instead (photos already hosted on `reviewforest.org` or its subdomains keep their address). Allow both now so photos keep working across the switch, and keep the platform hosts until ReviewForest has announced the release and you have tested the narrower policy against real photo requests (a quiet console proves nothing while the old hosts are still allowed).
-- Widgets still on version 1.0 also need `img-src data:` and `style-src 'unsafe-inline'`, because they inject a `<style>` tag and inline images. Updating them to version 2.0 in the dashboard avoids this. Where the style policy uses a nonce or hash, browsers ignore `'unsafe-inline'`, so version 1.0 widgets stay unstyled there: update them, or render the reviews yourself (Approach 2).
+- Widgets still on version 1.0 also need `img-src data:` and `'unsafe-inline'` for styles (in `style-src-elem` if the policy has it, otherwise `style-src`), because they inject a `<style>` tag and inline images. Updating them to version 2.0 in the dashboard avoids this. Where the style policy uses a nonce or hash, browsers ignore `'unsafe-inline'`, so version 1.0 widgets stay unstyled there: update them, or render the reviews yourself (Approach 2).
 - The review forest page widget also loads a Mapbox map, more images and its own styles, so a strict policy needs more for it. Load the page and check the browser console for blocked requests.
 
 ## Approach 2: Custom Rendering via API
@@ -208,7 +208,7 @@ Each tree has a `type`:
 - **`review`** — a tree for a review. Has `name` (planter), `date`, `score`, `title`, `text` (and possibly `texts[]`/`ratings[]`), `platformType`, and `url` (link to the original review on the source platform). Can have `profilePicture`, the reviewer's photo URL (see **Content Security Policy** under Design Guidance).
 - **`additionalTree`** — manually planted. Has `name`, `date`, and `occasion` instead of review data.
 
-On a public page, show a review tree's reviewer details (name, photo, text, review link) only from the matching widget review (same `uniqueId` in `GET /v1/widgets/{uuid}/reviews`); without a match, show only the tree's own data (date, planting project, tree link). That keeps anonymized reviewers anonymous.
+On a public page, show trees only as counts or with their date and planting project, and take reviews from the widget feed. Don't show a review tree's reviewer details there (name, photo, text, review link, `pageTreeUrl`): the tree feed can still hold a copy of a review whose reviewer asked to be anonymized, and its rows can't be matched to widget reviews reliably. Use full tree rows only behind a login.
 
 Both also include `pageTreeUrl` (link to the tree on the forest page) and `plantingProject` (project name). `text` is user-generated content — the same XSS rules in Step 5 apply.
 
@@ -298,13 +298,11 @@ async function loadWidgetReviews(widgetUuid) {
     if (!res.ok) throw new Error(`ReviewForest API ${res.status}`); // caller hides the section
     return res.json();
   };
-  const [{ data: [widget] }, { data: reviews }] = await Promise.all([
-    // counts as one impression of the widget, like the embed's own request
-    getJson(`${API}/widgets?uuids=${encodeURIComponent(widgetUuid)}`),
-    // the widget's dashboard filters applied, anonymized reviews left out; not counted as an impression
-    getJson(`${API}/widgets/${encodeURIComponent(widgetUuid)}/reviews?pageSize=10`),
-  ]);
+  // counts as one impression of the widget, like the embed's own request
+  const { data: [widget] } = await getJson(`${API}/widgets?uuids=${encodeURIComponent(widgetUuid)}`);
   if (!widget) return null; // unknown or deleted UUID (200 with an empty list): render nothing
+  // the widget's dashboard filters applied, anonymized reviews left out; not counted as an impression
+  const { data: reviews } = await getJson(`${API}/widgets/${encodeURIComponent(widgetUuid)}/reviews?pageSize=10`);
   return { widget, reviews };
 }
 
@@ -329,7 +327,7 @@ async function loadWidgetReviews(widgetUuid) {
 - **Platform name:** Prefer the API's `platforms[].typeDisplayName` for the human-readable platform name, NOT `platforms[].name` (the business listing name). If you map platform types yourself, fall back to capitalizing the raw `platformType` for any type not in the table above — the platform list grows over time
 - **Error handling:** Check `res.ok`. The forest endpoints return `401` (missing/invalid key), `404` (unknown forest, or one from another account), or `400` (malformed id). On error, hide the widget rather than rendering `undefined`
 - **Display settings:** apply the forest's `displaySettings` the way the embed widgets do. If `showReviewerInitialOnly` is true, show only the reviewer's initials instead of `name`; if `showReviewTextAndScore` is false, leave out the review text and stars. The API returns full names either way, so this is up to your code
-- **Content Security Policy:** if the site has one, `connect-src https://api.reviewforest.org` covers the API calls. Reviewer photos (`profilePicture` on review trees) also need `img-src`: today they load from Google's and Facebook's image servers (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`), after an upcoming ReviewForest release from `https://api.reviewforest.org`. Allow both now, or leave the photos out. Platform logos from Google's favicon service need `img-src https://www.google.com https://*.gstatic.com` (it redirects there)
+- **Content Security Policy:** if the site has one, `connect-src https://api.reviewforest.org` covers the API calls. Reviewer photos (`profilePicture` on review trees) also need `img-src`: today they load from Google's and Facebook's image servers (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`), after an upcoming ReviewForest release from `https://api.reviewforest.org`. Allow both now, plus any `reviewforest.org` image origin that shows up in the feed (see the photo notes in [references/api.md](references/api.md)), or leave the photos out. Platform logos from Google's favicon service need `img-src https://www.google.com https://*.gstatic.com` (it redirects there)
 - **Caching:** Review data changes infrequently. On static/SSR frameworks (Next.js, Astro, Nuxt) fetch at build time or server-side and revalidate periodically instead of on every page view; for pure client-side sites, a short `sessionStorage` cache avoids refetching on each navigation
 - **Links and photos:** before you put `url` or `profilePicture` into `href` or `src`, accept only `http:` and `https:` URLs and leave the link or photo out otherwise; the fields can also be missing. For example `const safeUrl = v => { try { const u = new URL(v); return ['http:', 'https:'].includes(u.protocol) ? u.href : null; } catch { return null; } };`. Escaping the text does not make a URL safe.
 - **Forest link:** Always link to the forest page: `https://reviewforest.org/{slug}`
