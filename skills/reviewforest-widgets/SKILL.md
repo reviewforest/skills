@@ -73,7 +73,7 @@ Include the script tag only once. Add multiple `<div>` elements with different U
 
 ### Content Security Policy
 
-If the site sends a Content Security Policy (a `Content-Security-Policy` header or `<meta http-equiv>` tag), extend it, or the widgets stay empty. When you add a directive the policy doesn't have yet, the browser stops falling back to `default-src` for it, so copy those sources in too: a policy with only `default-src 'self'` becomes, for example, `script-src 'self' https://widgets.reviewforest.org`, or the site's own scripts, requests and images break. If the policy also sets `script-src-elem` or `style-src-elem`, add the same sources there too, because those take precedence for `<script>` and `<style>` elements. If it uses a nonce with `'strict-dynamic'`, host sources don't let the loader run: put the page's per-response nonce on the `<script src="https://widgets.reviewforest.org/main.js">` tag.
+If the site sends a Content Security Policy (a `Content-Security-Policy` header or `<meta http-equiv>` tag), extend it, or the widgets stay empty. Extend only the directives that actually block something the widgets need (the browser console names them); a policy with, say, only `frame-ancestors` needs nothing. When you add a directive the policy doesn't have yet, the browser stops falling back to `default-src` for it, so copy those sources in too: a policy with only `default-src 'self'` becomes, for example, `script-src 'self' https://widgets.reviewforest.org`, or the site's own scripts, requests and images break. If the policy also sets `script-src-elem` or `style-src-elem`, add the same sources there too, because those take precedence for `<script>` and `<style>` elements. If it uses a nonce with `'strict-dynamic'`, host sources don't let the loader run: put the page's per-response nonce on the `<script src="https://widgets.reviewforest.org/main.js">` tag.
 
 - `script-src`: `https://widgets.reviewforest.org`
 - `connect-src`: `https://api.reviewforest.org` (widget data) and `https://cdn.comvi.io` (widget texts)
@@ -206,7 +206,9 @@ Query params: `sortBy` (date/name), `order` (asc/desc), `pageSize` (10/15/20/25/
 
 Each tree has a `type`:
 - **`review`** — a tree for a review. Has `name` (planter), `date`, `score`, `title`, `text` (and possibly `texts[]`/`ratings[]`), `platformType`, and `url` (link to the original review on the source platform). Can have `profilePicture`, the reviewer's photo URL (see **Content Security Policy** under Design Guidance).
-- **`additionalTree`** — manually planted. Has `name`, `date`, and `occasion` instead of review data.
+- **`additionalTree`** — manually planted.
+
+On a public page, show a review tree's reviewer details (name, photo, text, review link) only from the matching widget review (same `uniqueId` in `GET /v1/widgets/{uuid}/reviews`); without a match, show only the tree's own data (date, planting project, tree link). That keeps anonymized reviewers anonymous. Has `name`, `date`, and `occasion` instead of review data.
 
 Both also include `pageTreeUrl` (link to the tree on the forest page) and `plantingProject` (project name). `text` is user-generated content — the same XSS rules in Step 5 apply.
 
@@ -291,12 +293,16 @@ This is a minimal reference for correct API usage patterns. Do not copy-paste �
 const API = 'https://api.reviewforest.org/v1';
 
 async function loadWidgetReviews(widgetUuid) {
-  // Check res.ok in real code; on 404 hide the section rather than rendering "undefined".
+  const getJson = async (url) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`ReviewForest API ${res.status}`); // caller hides the section
+    return res.json();
+  };
   const [{ data: [widget] }, { data: reviews }] = await Promise.all([
     // counts as one impression of the widget, like the embed's own request
-    fetch(`${API}/widgets?uuids=${encodeURIComponent(widgetUuid)}`).then(r => r.json()),
+    getJson(`${API}/widgets?uuids=${encodeURIComponent(widgetUuid)}`),
     // the widget's dashboard filters applied, anonymized reviews left out; not counted as an impression
-    fetch(`${API}/widgets/${encodeURIComponent(widgetUuid)}/reviews?pageSize=10`).then(r => r.json()),
+    getJson(`${API}/widgets/${encodeURIComponent(widgetUuid)}/reviews?pageSize=10`),
   ]);
   if (!widget) return null; // unknown or deleted UUID (200 with an empty list): render nothing
   return { widget, reviews };
