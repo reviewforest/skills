@@ -73,7 +73,7 @@ Include the script tag only once. Add multiple `<div>` elements with different U
 
 ### Content Security Policy
 
-If the site sends a Content Security Policy (a `Content-Security-Policy` header or `<meta http-equiv>` tag), extend it, or the widgets stay empty. If the policy also sets `script-src-elem` or `style-src-elem`, add the same sources there too, because those take precedence for `<script>` and `<style>` elements:
+If the site sends a Content Security Policy (a `Content-Security-Policy` header or `<meta http-equiv>` tag), extend it, or the widgets stay empty. If the policy also sets `script-src-elem` or `style-src-elem`, add the same sources there too, because those take precedence for `<script>` and `<style>` elements. If it uses a nonce with `'strict-dynamic'`, host sources don't let the loader run: put the page's per-response nonce on the `<script src="https://widgets.reviewforest.org/main.js">` tag.
 
 - `script-src`: `https://widgets.reviewforest.org`
 - `connect-src`: `https://api.reviewforest.org` (widget data) and `https://cdn.comvi.io` (widget texts)
@@ -89,9 +89,9 @@ Fetch data from the ReviewForest API and render reviews in the user's framework.
 
 The user needs an API key with the access type **Website-Widgets**. At https://app.reviewforest.org/integrations/public-api they click **Create new key**, set **Type of data access** to **Website-Widgets** (the default is Read-only) and click **Create key**. The account has to be activated first (plan chosen, payment details added); the dashboard asks for it otherwise.
 
-**What this key can do:** it only reads, and only seven `GET` routes: the four forest routes below and three widget routes (`/v1/widgets`, `/v1/widgets/{uuid}`, `/v1/widgets/{uuid}/reviews`). Every other route that needs a key answers it with `401` or `403`, so it can't write anything or read invoices or user data. That's why it may sit in client-side JavaScript, where it is visible in the page source. (Calls to `/v1/widgets/{uuid}` and `/v1/widgets?uuids=…` count as impressions of those widgets, so don't poll them.)
+**What this key can do:** it only reads, and only seven `GET` routes: the four forest routes below and three widget routes (`/v1/widgets`, `/v1/widgets/{uuid}`, `/v1/widgets/{uuid}/reviews`). Every other route that needs a key answers it with `401` or `403`, so it can't write anything or read invoices or user data. Even so, keep it out of the browser: call the forest routes on the server or at build time (see **Caching** below) and pass on only the fields the page shows. For a public page the keyless widget routes are enough (see the example below). (Calls to `/v1/widgets/{uuid}` and `/v1/widgets?uuids=…` count as impressions of those widgets, so don't poll them.)
 
-**What that means:** anyone who copies the key from the page can call those routes too, for **every** review forest in the account, not just the one on the page. They get forest names, scores and counts, display settings, connected platforms, reviews, the tree feed with reviewer names and photos, and the widget settings, plus the company ID, plan, subscription status and planting limit of the account (the widget routes return these even without a key) and its recurring extra-tree settings. The responses leave out email addresses, billing references and the access tokens of connected Google and Facebook accounts. If the account has forests that shouldn't be public, fetch the data on the server or at build time (see **Caching** below) and keep the key out of the browser.
+**If the key ends up in a page anyway,** anyone who copies it can call those routes too, for **every** review forest in the account, not just the one on the page. They get forest names, scores and counts, display settings, connected platforms, reviews, the tree feed with reviewer names and photos, and the widget settings, plus the company ID, plan, subscription status and planting limit of the account (the widget routes return these even without a key) and its recurring extra-tree settings. The responses leave out email addresses, billing references and the access tokens of connected Google and Facebook accounts. Treat everything those routes return as public once the key is in a page.
 
 Never put a key with the access type **Read-only** or **Full access** into frontend code: those also read invoices and account details, and Full access can change data. The dashboard's key list shows each key's type in the **Data access** column; if you're not sure which type a key the user gave you has, ask. Details: [references/api.md](references/api.md#the-website-widgets-key)
 
@@ -280,28 +280,29 @@ https://www.google.com/s2/favicons?domain=DOMAIN&sz=SIZE
 This is a minimal reference for correct API usage patterns. Do not copy-paste — adapt to the user's framework and project structure.
 
 ```javascript
-// Fetch forest data and reviews
+// Public page: the keyless widget routes. No API key in the browser; the feed applies
+// the widget's dashboard filters and leaves out reviews whose reviewer asked to be
+// anonymized. Each call counts as an impression of the widget, as the embed does.
 const API = 'https://api.reviewforest.org/v1';
-const headers = { apikey: 'USER_API_KEY' };
 
-// Independent requests — fetch in parallel. Check res.ok in real code; on 401/404
-// the forest may be missing, so hide the section rather than rendering "undefined".
-const [forest, { data: reviews }] = await Promise.all([
-  fetch(`${API}/forests/${forestId}`, { headers }).then(r => r.json()),
-  fetch(`${API}/forests/${forestId}/reviews?pageSize=10&showReviewOnlyWithText=true`, { headers }).then(r => r.json()),
-]);
+// Check res.ok in real code; on 404 hide the section rather than rendering "undefined".
+const { data: reviews } = await fetch(`${API}/widgets/${widgetUuid}/reviews`).then(r => r.json());
 
+// reviews[].name, .score (can be missing), .text, .texts[]/.ratings[] (structured reviews),
+// .date, .platformType, .url, .profilePicture
+// Display settings of the widget: GET /v1/widgets?uuids={widgetUuid}, also without a key.
+
+// Forest totals (score, reviewAmount, totalTreeAmount, platforms) need the Website-Widgets key:
+// fetch them on the server or at build time and pass on only what the page shows.
+// const forest = await fetch(`${API}/forests/${forestId}`, { headers: { apikey: process.env.RF_API_KEY } }).then(r => r.json());
 // forest.score, forest.reviewAmount, forest.totalTreeAmount, forest.slug
 // forest.platforms[].type, forest.platforms[].typeDisplayName, forest.platforms[].score
 // (brand forests have no forest.platforms — use forest.channels[] instead)
-
-// reviews[].name, reviews[].score, reviews[].text, reviews[].date, reviews[].platformType, reviews[].url
-// (structured texts[]/ratings[] come from the /trees endpoint, not /reviews)
 ```
 
 ### Design Guidance
 
-- **CORS:** The API supports CORS — call endpoints directly from browser JavaScript, no backend proxy needed
+- **CORS:** The API supports CORS, so the keyless widget routes can be called straight from browser JavaScript. Calls that need the key belong on the server or in the build.
 - **Platform name:** Prefer the API's `platforms[].typeDisplayName` for the human-readable platform name, NOT `platforms[].name` (the business listing name). If you map platform types yourself, fall back to capitalizing the raw `platformType` for any type not in the table above — the platform list grows over time
 - **Error handling:** Check `res.ok`. The forest endpoints return `401` (missing/invalid key), `404` (unknown forest, or one from another account), or `400` (malformed id). On error, hide the widget rather than rendering `undefined`
 - **Display settings:** apply the forest's `displaySettings` the way the embed widgets do. If `showReviewerInitialOnly` is true, show only the reviewer's initials instead of `name`; if `showReviewTextAndScore` is false, leave out the review text and stars. The API returns full names either way, so this is up to your code
