@@ -269,7 +269,7 @@ This is the complete review list of the forest. Use it, not the trees feed, when
 
 ## GET /v1/forests/{forestId}/trees
 
-List planted trees for a forest.
+List a forest's tree records. The list can include trees that are not settled yet, and with a Website-Widgets key the response doesn't show that status (`unPaid` is stripped), so take planted totals from the forest's aggregate counts and don't label a single row as a confirmed planting.
 
 **Query Parameters:**
 
@@ -320,7 +320,7 @@ List planted trees for a forest.
 ```
 
 Key notes:
-- Tree `type` is either `"review"` (planted from a review) or `"additionalTree"` (manually planted).
+- Tree `type` is either `"review"` (a tree for a review) or `"additionalTree"` (added manually).
 - The feed is not a complete review list: it holds only the reviews that planted a tree (a forest can pause or cap planting), plus the manually planted trees. For all reviews use `GET /v1/forests/{forestId}/reviews`.
 - Review trees have `score`, `text`, `title`, `platformType`, and `url` (link to the original review on the source platform). They may also carry `texts[]`/`ratings[]` for structured reviews — see [Structured review text](#structured-review-text) below.
 - Review trees can also have `profilePicture`, the reviewer's photo URL, when the platform provides one (Google, Google Play and Facebook reviews). Today it points at Google's or Facebook's image servers (`*.googleusercontent.com`, `*.ggpht.com`, `*.fbcdn.net`, `*.fbsbx.com`). After an upcoming ReviewForest release it points at `https://api.reviewforest.org` instead, and photos from any other host are left out. If the page has a Content Security Policy that restricts `img-src`, allow `https://api.reviewforest.org` there now, plus those platform hosts for as long as photos come from them.
@@ -334,7 +334,7 @@ Key notes:
 Review-type trees carry the review text in one of two forms (`GET /v1/widgets/{uuid}/reviews` returns the same fields for every review a widget shows; see the [interactive documentation](https://reviewforest.org/apidoc/)):
 
 - **Simple** — the `text` field holds the full text as a string (with an optional `title`).
-- **Structured** — `texts[]` and/or `ratings[]` arrays break the review down by topic. Each item has `id` (topic key) and `text` (may contain basic HTML — sanitize before rendering). Common on employer/product platforms (Kununu, Glassdoor, G2).
+- **Structured** — `texts[]` and/or `ratings[]` arrays break the review down by topic. Each item usually has `id` (topic key) and `text` (may contain basic HTML — sanitize before rendering); some Kununu items are plain strings, so render a string item as is, skip empty items, and fall back to the plain `text` when no topic content is left. Common on employer/product platforms (Kununu, Glassdoor, G2).
 
 ```json
 {

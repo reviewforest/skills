@@ -77,7 +77,7 @@ If the site sends a Content Security Policy (a `Content-Security-Policy` header 
 
 - `script-src`: `https://widgets.reviewforest.org`
 - `connect-src`: `https://api.reviewforest.org` (widget data) and `https://cdn.comvi.io` (widget texts)
-- `img-src`, if the policy restricts it: `https://widgets.reviewforest.org` (platform logos and icons) and the hosts of reviewers' profile photos. Today the photos load straight from Google and Facebook (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`); after an upcoming ReviewForest release they load from `https://api.reviewforest.org` instead (photos already hosted on `reviewforest.org` or its subdomains keep their address). Allow both now so photos keep working across the switch, and drop the platform hosts only after the browser console shows no blocked images.
+- `img-src`, if the policy restricts it: `https://widgets.reviewforest.org` (platform logos and icons) and the hosts of reviewers' profile photos. Today the photos load straight from Google and Facebook (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`); after an upcoming ReviewForest release they load from `https://api.reviewforest.org` instead (photos already hosted on `reviewforest.org` or its subdomains keep their address). Allow both now so photos keep working across the switch, and keep the platform hosts until ReviewForest has announced the release and you have tested the narrower policy against real photo requests (a quiet console proves nothing while the old hosts are still allowed).
 - Widgets still on version 1.0 also need `img-src data:` and `style-src 'unsafe-inline'`, because they inject a `<style>` tag and inline images. Updating them to version 2.0 in the dashboard avoids this. Where the style policy uses a nonce or hash, browsers ignore `'unsafe-inline'`, so version 1.0 widgets stay unstyled there: update them, or render the reviews yourself (Approach 2).
 - The review forest page widget also loads a Mapbox map, more images and its own styles, so a strict policy needs more for it. Load the page and check the browser console for blocked requests.
 
@@ -154,7 +154,7 @@ Key fields:
 - `name` — business/forest name
 - `slug` — forest page slug (link to `https://reviewforest.org/{slug}`)
 - `score` — aggregate rating (string, e.g. "4.8")
-- `reviewAmount` — total review count
+- `reviewAmountOnPlatform` — total reviews on the source platforms (the count the badges show); `reviewAmount` counts only the reviews imported into ReviewForest
 - `totalTreeAmount` — total trees planted
 - `reviewTreeAmount` — trees from reviews
 - `additionalTreeAmount` — manually planted trees
@@ -164,7 +164,7 @@ Key fields:
   - `typeDisplayName` — human-readable platform name (e.g. "Google")
   - `name` — business listing name on that platform (NOT the platform name)
   - `score` — platform-specific rating
-  - `reviewAmount` — reviews on that platform
+  - `reviewAmountOnPlatform` — reviews on that platform (`reviewAmount`: the ones imported into ReviewForest)
 
 **Brand forests:** if the forest's `type` is `"brand"` it has **no** `platforms`/`platformsOrder`. Instead it returns a `channels[]` array — each channel is itself a forest object (with its own `platforms[]`). Guard for this before reading `platforms` (e.g. `(forest.platforms ?? forest.channels?.flatMap(c => c.platforms) ?? [])`), or stick to single forests. Regular forests have `type: "single"`.
 
@@ -227,7 +227,7 @@ Use the user's framework and match existing code patterns. For React — create 
 Review content comes in two formats. **Note:** only the plain `text` form is returned by the `/reviews` endpoint. The structured form comes with review-type **trees** (from the `/trees` endpoint), which cover only reviews that planted a tree, and with `GET /v1/widgets/{uuid}/reviews`, the review feed of an embed widget: every review that widget shows, after its dashboard filters, and public (no key needed). To render a topic-by-topic breakdown, read it from one of those two.
 
 - **Simple:** `text` field contains the full review text as a string
-- **Structured:** `texts[]` and/or `ratings[]` arrays — the review broken down by topics. Each element has `id` (topic key) and `text` (may contain basic HTML formatting — sanitize before rendering).
+- **Structured:** `texts[]` and/or `ratings[]` arrays — the review broken down by topics. Each element usually has `id` (topic key) and `text` (may contain basic HTML formatting — sanitize before rendering); some Kununu entries are plain strings, so render a string entry as is, skip empty entries, and fall back to `text` when no topic content is left.
 
 An item may have `texts` only, `ratings` only, or both — combine them when rendering. Check the `texts`/`ratings` arrays first; if they have entries, render each topic with its heading and text. If neither array has entries, fall back to the plain `text` field.
 
@@ -298,10 +298,11 @@ const [{ data: [widget] }, { data: reviews }] = await Promise.all([
   fetch(`${API}/widgets/${widgetUuid}/reviews?pageSize=10`).then(r => r.json()),
 ]);
 
-if (!widget) { /* unknown or deleted UUID (200 with an empty list): hide the section */ }
+if (!widget) return; // unknown or deleted UUID (200 with an empty list): render nothing
 
 // widget.data.score, .reviewAmountOnPlatform (the review count the badges show; .reviewAmount
-// counts imported reviews), .totalTreeAmount, .slug, .displaySettings
+// counts imported reviews), .totalTreeAmount (for a brand forest whose campaign has ended, take the
+// stored total from GET /v1/widgets/{slug}/counter instead), .slug, .displaySettings
 // (widget.data.platforms ?? []) — single forests list their platforms there
 // reviews[].name, .score (can be missing), .text, .texts[]/.ratings[] (structured reviews),
 // .date, .platformType, .url, .profilePicture (use url/profilePicture only if they are http(s))
