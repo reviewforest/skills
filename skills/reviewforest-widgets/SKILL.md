@@ -73,7 +73,7 @@ Include the script tag only once. Add multiple `<div>` elements with different U
 
 ### Content Security Policy
 
-If the site sends a Content Security Policy (a `Content-Security-Policy` header or `<meta http-equiv>` tag), extend it, or the widgets stay empty:
+If the site sends a Content Security Policy (a `Content-Security-Policy` header or `<meta http-equiv>` tag), extend it, or the widgets stay empty. If the policy also sets `script-src-elem` or `style-src-elem`, add the same sources there too, because those take precedence for `<script>` and `<style>` elements:
 
 - `script-src`: `https://widgets.reviewforest.org`
 - `connect-src`: `https://api.reviewforest.org` (widget data) and `https://cdn.comvi.io` (widget texts)
@@ -180,13 +180,13 @@ Ask the user how they want reviews sorted and whether to show only reviews with 
 
 Key fields from each review:
 - `name` — reviewer display name
-- `score` — 1-5 star rating; can have a decimal (OMR reviews, for example, come in halves like 4.5)
+- `score` — 1-5 star rating; can have a decimal (OMR reviews, for example, come in halves like 4.5). Can be missing for a few imported reviews whose rating could not be read, so render stars only when `Number.isFinite(score)`
 - `text` — review text (can be missing or null)
 - `date` — ISO date string
 - `platformType` — source platform (see platform types below)
 - `url` — link to the review on the ReviewForest forest page
 
-This endpoint returns the plain `text` only — it does **not** return `title` or the structured `texts[]`/`ratings[]` breakdown. For Kununu, Glassdoor and G2 that plain `text` is flattened, shortened or empty; see [Review Text Structure](#review-text-structure) for where the topic-by-topic content comes from. This is the forest's complete review list; the trees feed in Step 4 is not.
+This endpoint returns the plain `text` only — it does **not** return `title` or the structured `texts[]`/`ratings[]` breakdown. For Kununu, Glassdoor and G2 that plain `text` is flattened, shortened or empty; see [Review Text Structure](#review-text-structure) for where the topic-by-topic content comes from. This is the forest's complete review list; the trees feed in Step 4 is not. For a review list on a public page, use the review feed of the forest's embed widget instead (`GET /v1/widgets/{uuid}/reviews`, see [references/api.md](references/api.md)): it is the list ReviewForest itself shows publicly, applies the widget's dashboard filters and every removal or anonymization a reviewer asked for, and needs no key in the browser. Use `/reviews` for server-side or internal views.
 
 ### Step 4: Get Trees (optional)
 
@@ -308,4 +308,4 @@ const [forest, { data: reviews }] = await Promise.all([
 - **Content Security Policy:** if the site has one, `connect-src https://api.reviewforest.org` covers the API calls. Reviewer photos (`profilePicture` on review trees) also need `img-src`: today they load from Google's and Facebook's image servers (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`), after an upcoming ReviewForest release from `https://api.reviewforest.org`. Allow both now, or leave the photos out. Platform logos from Google's favicon service need `img-src https://www.google.com https://*.gstatic.com` (it redirects there)
 - **Caching:** Review data changes infrequently. On static/SSR frameworks (Next.js, Astro, Nuxt) fetch at build time or server-side and revalidate periodically instead of on every page view; for pure client-side sites, a short `sessionStorage` cache avoids refetching on each navigation
 - **Forest link:** Always link to the forest page: `https://reviewforest.org/{slug}`
-- **Star ratings:** 1-5 per review, sometimes with a decimal (render partial stars or round); aggregate `score` on the forest (e.g. "4.8")
+- **Star ratings:** 1-5 per review, sometimes with a decimal (render partial stars or round), and skip the stars when a review has no `score`; aggregate `score` on the forest (e.g. "4.8")
