@@ -263,7 +263,7 @@ Each review has these fields and no others: `{ name, score, text, date, platform
 
 When present, `score` is a number from 1 to 5 and can have a decimal (OMR reviews, for example, come in halves like 4.5). It can be missing for a few imported reviews whose rating could not be read (Amazon, for example), so render stars only when `Number.isFinite(score)`.
 
-This is the complete review list of the forest. Use it, not the trees feed, when the user wants all reviews. For a list on a public page, use `GET /v1/widgets/{uuid}/reviews` instead: it applies the widget's filters and leaves out reviews whose reviewer asked to be anonymized.
+This is the complete review list of the forest. Use it, not the trees feed, when the user wants all reviews. For a list on a public page, use `GET /v1/widgets/{uuid}/reviews` instead (see [Keyless widget routes](#keyless-widget-routes)): it applies the widget's filters and leaves out reviews whose reviewer asked to be anonymized. That holds for pages rendered on the server or at build time too; keep `/reviews` for views behind a login.
 
 ---
 
@@ -387,6 +387,14 @@ Display labels for the topic `id` values. For any `id` not listed, humanize the 
 | `workLife` | Work-life balance |
 
 ---
+
+## Keyless widget routes
+
+Both answer without an API key, because the embed widgets call them from every visitor's browser. Use them for anything shown on a public page.
+
+`GET /v1/widgets?uuids={uuid}` (several UUIDs comma-separated) returns `{ count, data: [widget] }`. Each widget carries its settings and, under `data`, the forest summary: `score`, `reviewAmount`, `totalTreeAmount`, `slug`, `displaySettings`, and for single forests `platforms[]` (`type`, `name`, `keys`). Each call counts as an impression of the widget, so don't poll it.
+
+`GET /v1/widgets/{uuid}/reviews` returns the reviews that widget shows, paged (the reviews are in `data`). It applies the widget's dashboard filters and leaves out reviews whose reviewer asked to be anonymized. Optional query parameters: `page`, `pageSize` (1-100), `sortBy` (`date`, `name`, `score`), `order` (`asc`, `desc`), `showReviewOnlyWithText`, `keywordsInclude`, `keywordsExclude`, `minScore`; a parameter you pass replaces the widget's own setting. Each review carries `id`, `uniqueId`, `name`, `score`, `date`, `text`, `texts`, `title`, `ratings`, `platformType`, `platform`, `profilePicture`, `url`, `language` and `isVerified`, each only when it is set. This route is not counted as an impression.
 
 ## Forest Page URL
 

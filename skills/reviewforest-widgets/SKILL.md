@@ -20,7 +20,7 @@ Integrate ReviewForest review widgets into any website. Two approaches:
 Confirm the approach (default: **widget embed**) and collect the matching prerequisite:
 
 - **Widget embed** — the user creates a widget at https://app.reviewforest.org/website-widgets/add (or copies the snippet from an existing one at https://app.reviewforest.org/website-widgets/installed), then provides the embed snippet (or just the UUID). See **Approach 1**.
-- **Custom rendering** — the user creates an API key with the access type **Website-Widgets** at https://app.reviewforest.org/integrations/public-api. See **Approach 2**. Detailed API reference: [references/api.md](references/api.md)
+- **Custom rendering** — the user creates a widget in the dashboard (it decides which reviews show) and provides its UUID; its review feed and totals need no key. Only forest data the widget routes don't carry, such as per-platform scores, needs an API key with the access type **Website-Widgets** (https://app.reviewforest.org/integrations/public-api), used on the server or at build time. See **Approach 2**. Detailed API reference: [references/api.md](references/api.md)
 
 ## Approach 1: Widget Embed (Recommended)
 
@@ -77,17 +77,17 @@ If the site sends a Content Security Policy (a `Content-Security-Policy` header 
 
 - `script-src`: `https://widgets.reviewforest.org`
 - `connect-src`: `https://api.reviewforest.org` (widget data) and `https://cdn.comvi.io` (widget texts)
-- `img-src`, if the policy restricts it: `https://widgets.reviewforest.org` (platform logos and icons) and the hosts of reviewers' profile photos. Today the photos load straight from Google and Facebook (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`); after an upcoming ReviewForest release they all load from `https://api.reviewforest.org`. Allow both now so photos keep working across the switch; after the release `https://api.reviewforest.org` alone is enough.
-- Widgets still on version 1.0 also need `img-src data:` and `style-src 'unsafe-inline'`, because they inject a `<style>` tag and inline images. Updating them to version 2.0 in the dashboard avoids this.
+- `img-src`, if the policy restricts it: `https://widgets.reviewforest.org` (platform logos and icons) and the hosts of reviewers' profile photos. Today the photos load straight from Google and Facebook (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`); after an upcoming ReviewForest release they load from `https://api.reviewforest.org` instead (photos already hosted on `reviewforest.org` or its subdomains keep their address). Allow both now so photos keep working across the switch, and drop the platform hosts only after the browser console shows no blocked images.
+- Widgets still on version 1.0 also need `img-src data:` and `style-src 'unsafe-inline'`, because they inject a `<style>` tag and inline images. Updating them to version 2.0 in the dashboard avoids this. Where the style policy uses a nonce or hash, browsers ignore `'unsafe-inline'`, so version 1.0 widgets stay unstyled there: update them, or render the reviews yourself (Approach 2).
 - The review forest page widget also loads a Mapbox map, more images and its own styles, so a strict policy needs more for it. Load the page and check the browser console for blocked requests.
 
 ## Approach 2: Custom Rendering via API
 
-Fetch data from the ReviewForest API and render reviews in the user's framework. Use this when the pre-built widgets don't fit the user's design needs. No external scripts needed. Requires an API key.
+Fetch data from the ReviewForest API and render reviews in the user's framework. Use this when the pre-built widgets don't fit the user's design needs. No external scripts needed. Needs the UUID of a widget created in the dashboard; an API key only for forest data the widget routes don't return.
 
 ### Prerequisites
 
-The user needs an API key with the access type **Website-Widgets**. At https://app.reviewforest.org/integrations/public-api they click **Create new key**, set **Type of data access** to **Website-Widgets** (the default is Read-only) and click **Create key**. The account has to be activated first (plan chosen, payment details added); the dashboard asks for it otherwise.
+For a public page the user creates a widget at https://app.reviewforest.org/website-widgets/add (its settings decide which reviews show) and gives you its UUID. The widget's review feed and its totals need no key (see the example below). For forest data the widget routes don't carry, such as per-platform scores, the user needs an API key with the access type **Website-Widgets**. At https://app.reviewforest.org/integrations/public-api they click **Create new key**, set **Type of data access** to **Website-Widgets** (the default is Read-only) and click **Create key**. The account has to be activated first (plan chosen, payment details added); the dashboard asks for it otherwise.
 
 **What this key can do:** it only reads, and only seven `GET` routes: the four forest routes below and three widget routes (`/v1/widgets`, `/v1/widgets/{uuid}`, `/v1/widgets/{uuid}/reviews`). Every other route that needs a key answers it with `401` or `403`, so it can't write anything or read invoices or user data. Even so, keep it out of the browser: call the forest routes on the server or at build time (see **Caching** below) and pass on only the fields the page shows. For a public page the keyless widget routes are enough (see the example below). (Calls to `/v1/widgets/{uuid}` and `/v1/widgets?uuids=…` count as impressions of those widgets, so don't poll them.)
 
@@ -186,7 +186,7 @@ Key fields from each review:
 - `platformType` — source platform (see platform types below)
 - `url` — link to the review on the ReviewForest forest page
 
-This endpoint returns the plain `text` only — it does **not** return `title` or the structured `texts[]`/`ratings[]` breakdown. For Kununu, Glassdoor and G2 that plain `text` is flattened, shortened or empty; see [Review Text Structure](#review-text-structure) for where the topic-by-topic content comes from. This is the forest's complete review list; the trees feed in Step 4 is not. For a review list on a public page, use the review feed of the forest's embed widget instead (`GET /v1/widgets/{uuid}/reviews`, see [references/api.md](references/api.md)): it is the list ReviewForest itself shows publicly, applies the widget's dashboard filters, leaves out reviews whose reviewer asked to be anonymized, and needs no key in the browser. Use `/reviews` for server-side or internal views.
+This endpoint returns the plain `text` only — it does **not** return `title` or the structured `texts[]`/`ratings[]` breakdown. For Kununu, Glassdoor and G2 that plain `text` is flattened, shortened or empty; see [Review Text Structure](#review-text-structure) for where the topic-by-topic content comes from. This is the forest's complete review list; the trees feed in Step 4 is not. For a review list on a public page, use the review feed of the forest's embed widget instead (`GET /v1/widgets/{uuid}/reviews`, see [references/api.md](references/api.md)): it is the list ReviewForest itself shows publicly, applies the widget's dashboard filters, leaves out reviews whose reviewer asked to be anonymized, and needs no key in the browser. Use `/reviews` only for views behind a login, such as an internal dashboard. Public pages, including pages rendered on the server or at build time, use the widget feed, with the widget's display settings applied before rendering names, text or stars.
 
 ### Step 4: Get Trees (optional)
 
@@ -280,22 +280,26 @@ https://www.google.com/s2/favicons?domain=DOMAIN&sz=SIZE
 This is a minimal reference for correct API usage patterns. Do not copy-paste — adapt to the user's framework and project structure.
 
 ```javascript
-// Public page: the keyless widget routes. No API key in the browser; the feed applies
-// the widget's dashboard filters and leaves out reviews whose reviewer asked to be
-// anonymized. Each call counts as an impression of the widget, as the embed does.
+// Public page: the keyless widget routes, with the UUID of a widget the user created in
+// the dashboard. No API key in the browser.
 const API = 'https://api.reviewforest.org/v1';
 
 // Check res.ok in real code; on 404 hide the section rather than rendering "undefined".
-const { data: reviews } = await fetch(`${API}/widgets/${widgetUuid}/reviews`).then(r => r.json());
+const [{ data: [widget] }, { data: reviews }] = await Promise.all([
+  // counts as one impression of the widget, like the embed's own request
+  fetch(`${API}/widgets?uuids=${widgetUuid}`).then(r => r.json()),
+  // the widget's dashboard filters applied, anonymized reviews left out; not counted as an impression
+  fetch(`${API}/widgets/${widgetUuid}/reviews?pageSize=10`).then(r => r.json()),
+]);
 
+// widget.data.score, .reviewAmount, .totalTreeAmount, .slug, .displaySettings
+// (single forests also have widget.data.platforms[].type)
 // reviews[].name, .score (can be missing), .text, .texts[]/.ratings[] (structured reviews),
-// .date, .platformType, .url, .profilePicture
-// Display settings of the widget: GET /v1/widgets?uuids={widgetUuid}, also without a key.
+// .date, .platformType, .url, .profilePicture (use url/profilePicture only if they are http(s))
 
-// Forest totals (score, reviewAmount, totalTreeAmount, platforms) need the Website-Widgets key:
-// fetch them on the server or at build time and pass on only what the page shows.
+// Forest data the widget routes don't return (per-platform scores, typeDisplayName) needs the
+// Website-Widgets key: fetch it on the server or at build time and pass on only what the page shows.
 // const forest = await fetch(`${API}/forests/${forestId}`, { headers: { apikey: process.env.RF_API_KEY } }).then(r => r.json());
-// forest.score, forest.reviewAmount, forest.totalTreeAmount, forest.slug
 // forest.platforms[].type, forest.platforms[].typeDisplayName, forest.platforms[].score
 // (brand forests have no forest.platforms — use forest.channels[] instead)
 ```
@@ -308,5 +312,6 @@ const { data: reviews } = await fetch(`${API}/widgets/${widgetUuid}/reviews`).th
 - **Display settings:** apply the forest's `displaySettings` the way the embed widgets do. If `showReviewerInitialOnly` is true, show only the reviewer's initials instead of `name`; if `showReviewTextAndScore` is false, leave out the review text and stars. The API returns full names either way, so this is up to your code
 - **Content Security Policy:** if the site has one, `connect-src https://api.reviewforest.org` covers the API calls. Reviewer photos (`profilePicture` on review trees) also need `img-src`: today they load from Google's and Facebook's image servers (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`), after an upcoming ReviewForest release from `https://api.reviewforest.org`. Allow both now, or leave the photos out. Platform logos from Google's favicon service need `img-src https://www.google.com https://*.gstatic.com` (it redirects there)
 - **Caching:** Review data changes infrequently. On static/SSR frameworks (Next.js, Astro, Nuxt) fetch at build time or server-side and revalidate periodically instead of on every page view; for pure client-side sites, a short `sessionStorage` cache avoids refetching on each navigation
+- **Links and photos:** before you put `url` or `profilePicture` into `href` or `src`, accept only `http:` and `https:` URLs (check `new URL(value).protocol`) and leave the link or photo out otherwise. Escaping the text does not make a URL safe.
 - **Forest link:** Always link to the forest page: `https://reviewforest.org/{slug}`
 - **Star ratings:** 1-5 per review, sometimes with a decimal (render partial stars or round), and skip the stars when a review has no `score`; aggregate `score` on the forest (e.g. "4.8")
