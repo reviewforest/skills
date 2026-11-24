@@ -263,7 +263,7 @@ Each review has these fields and no others: `{ name, score, text, date, platform
 
 When present, `score` is a number from 1 to 5 and can have a decimal (OMR reviews, for example, come in halves like 4.5). It can be missing for a few imported reviews whose rating could not be read (Amazon, for example), so render stars only when `Number.isFinite(score)`.
 
-This is the complete review list of the forest. Use it, not the trees feed, when the user wants all reviews. For a list on a public page, use `GET /v1/widgets/{uuid}/reviews` instead: it applies the widget's filters and every removal or anonymization a reviewer asked for.
+This is the complete review list of the forest. Use it, not the trees feed, when the user wants all reviews. For a list on a public page, use `GET /v1/widgets/{uuid}/reviews` instead: it applies the widget's filters and leaves out reviews whose reviewer asked to be anonymized.
 
 ---
 

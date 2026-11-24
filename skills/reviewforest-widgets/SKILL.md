@@ -186,7 +186,7 @@ Key fields from each review:
 - `platformType` — source platform (see platform types below)
 - `url` — link to the review on the ReviewForest forest page
 
-This endpoint returns the plain `text` only — it does **not** return `title` or the structured `texts[]`/`ratings[]` breakdown. For Kununu, Glassdoor and G2 that plain `text` is flattened, shortened or empty; see [Review Text Structure](#review-text-structure) for where the topic-by-topic content comes from. This is the forest's complete review list; the trees feed in Step 4 is not. For a review list on a public page, use the review feed of the forest's embed widget instead (`GET /v1/widgets/{uuid}/reviews`, see [references/api.md](references/api.md)): it is the list ReviewForest itself shows publicly, applies the widget's dashboard filters and every removal or anonymization a reviewer asked for, and needs no key in the browser. Use `/reviews` for server-side or internal views.
+This endpoint returns the plain `text` only — it does **not** return `title` or the structured `texts[]`/`ratings[]` breakdown. For Kununu, Glassdoor and G2 that plain `text` is flattened, shortened or empty; see [Review Text Structure](#review-text-structure) for where the topic-by-topic content comes from. This is the forest's complete review list; the trees feed in Step 4 is not. For a review list on a public page, use the review feed of the forest's embed widget instead (`GET /v1/widgets/{uuid}/reviews`, see [references/api.md](references/api.md)): it is the list ReviewForest itself shows publicly, applies the widget's dashboard filters, leaves out reviews whose reviewer asked to be anonymized, and needs no key in the browser. Use `/reviews` for server-side or internal views.
 
 ### Step 4: Get Trees (optional)
 
