@@ -36,7 +36,7 @@ For this key type the responses leave out email addresses, billing and subscript
 
 ## Pagination
 
-All list endpoints support pagination via query parameters:
+The forest list endpoints support pagination via query parameters:
 
 | Parameter | Type | Default | Values |
 |-----------|------|---------|--------|
@@ -53,7 +53,7 @@ Paginated responses include:
 }
 ```
 
-`count` is the total number of items. Use `count` and `pageSize` to calculate total pages.
+`count` is the total number of items. Use `count` and the `pageSize` from the response's `query` to calculate total pages. The widget review feed (`GET /v1/widgets/{uuid}/reviews`) uses the widget's own reviews-per-page setting when you don't pass `pageSize`, so take the page size from its response too, never assume 10.
 
 ---
 
