@@ -138,7 +138,7 @@ Returns `{ query, count, data: [Forest, ...] }`. Each forest has an `id` (string
 
 Always request `pageSize=100` when listing forests. If `count` is greater than the number of items returned, fetch additional pages until you have the full list.
 
-If the user has one forest overall, use it automatically. If multiple, show the complete list (use `name` to identify) and let the user choose.
+If you start from a widget, use its `forestId` (from `GET /v1/widgets?uuids=`) instead of choosing a forest, so the data matches the widget's reviews. Otherwise: if the user has one forest overall, use it automatically. If multiple, show the complete list (use `name` to identify) and let the user choose.
 
 Query params: `sortBy` (createdAt/name/score/reviewAmount/totalTreeAmount), `order` (asc/desc), `pageSize` (10/15/20/25/50/100), `page`.
 
@@ -198,17 +198,19 @@ This endpoint returns the plain `text` only — it does **not** return `title` o
 GET https://api.reviewforest.org/v1/forests/{forestId}/trees
 ```
 
-Only needed if the user wants to display the individual planted trees (a "tree feed") rather than just the aggregate tree counts from Step 2. The feed holds only the reviews that planted a tree (a forest can pause or cap planting) plus manually planted trees, so it is no substitute for the review list in Step 3.
+Only needed if the user wants to display individual tree records (a "tree feed") rather than just the aggregate tree counts from Step 2. The feed holds only the reviews that planted a tree (a forest can pause or cap planting) plus manually planted trees, so it is no substitute for the review list in Step 3.
 
 Returns `{ query, count, data: [Tree, ...] }`.
 
 Query params: `sortBy` (date/name), `order` (asc/desc), `pageSize` (10/15/20/25/50/100), `page`.
 
 Each tree has a `type`:
-- **`review`** — planted from a review. Has `name` (planter), `date`, `score`, `title`, `text` (and possibly `texts[]`/`ratings[]`), `platformType`, and `url` (link to the original review on the source platform). Can have `profilePicture`, the reviewer's photo URL (see **Content Security Policy** under Design Guidance).
+- **`review`** — a tree for a review. Has `name` (planter), `date`, `score`, `title`, `text` (and possibly `texts[]`/`ratings[]`), `platformType`, and `url` (link to the original review on the source platform). Can have `profilePicture`, the reviewer's photo URL (see **Content Security Policy** under Design Guidance).
 - **`additionalTree`** — manually planted. Has `name`, `date`, and `occasion` instead of review data.
 
 Both also include `pageTreeUrl` (link to the tree on the forest page) and `plantingProject` (project name). `text` is user-generated content — the same XSS rules in Step 5 apply.
+
+The feed can include trees that are not settled yet, and this key doesn't see that status, so take planted totals from the aggregate counts (`totalTreeAmount`) and don't label a single row as a confirmed planting.
 
 See [references/api.md](references/api.md) for the full Tree object.
 
@@ -296,14 +298,18 @@ const [{ data: [widget] }, { data: reviews }] = await Promise.all([
   fetch(`${API}/widgets/${widgetUuid}/reviews?pageSize=10`).then(r => r.json()),
 ]);
 
-// widget.data.score, .reviewAmount, .totalTreeAmount, .slug, .displaySettings
-// (single forests also have widget.data.platforms[].type)
+if (!widget) { /* unknown or deleted UUID (200 with an empty list): hide the section */ }
+
+// widget.data.score, .reviewAmountOnPlatform (the review count the badges show; .reviewAmount
+// counts imported reviews), .totalTreeAmount, .slug, .displaySettings
+// (widget.data.platforms ?? []) — single forests list their platforms there
 // reviews[].name, .score (can be missing), .text, .texts[]/.ratings[] (structured reviews),
 // .date, .platformType, .url, .profilePicture (use url/profilePicture only if they are http(s))
 
 // Forest data the widget routes don't return (per-platform scores, typeDisplayName) needs the
 // Website-Widgets key: fetch it on the server or at build time and pass on only what the page shows.
-// const forest = await fetch(`${API}/forests/${forestId}`, { headers: { apikey: process.env.RF_API_KEY } }).then(r => r.json());
+// Use the widget's own forest, so the extra data matches the reviews shown:
+// const forest = await fetch(`${API}/forests/${widget.forestId}`, { headers: { apikey: process.env.RF_API_KEY } }).then(r => r.json());
 // forest.platforms[].type, forest.platforms[].typeDisplayName, forest.platforms[].score
 // (brand forests have no forest.platforms — use forest.channels[] instead)
 ```
@@ -316,6 +322,6 @@ const [{ data: [widget] }, { data: reviews }] = await Promise.all([
 - **Display settings:** apply the forest's `displaySettings` the way the embed widgets do. If `showReviewerInitialOnly` is true, show only the reviewer's initials instead of `name`; if `showReviewTextAndScore` is false, leave out the review text and stars. The API returns full names either way, so this is up to your code
 - **Content Security Policy:** if the site has one, `connect-src https://api.reviewforest.org` covers the API calls. Reviewer photos (`profilePicture` on review trees) also need `img-src`: today they load from Google's and Facebook's image servers (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`), after an upcoming ReviewForest release from `https://api.reviewforest.org`. Allow both now, or leave the photos out. Platform logos from Google's favicon service need `img-src https://www.google.com https://*.gstatic.com` (it redirects there)
 - **Caching:** Review data changes infrequently. On static/SSR frameworks (Next.js, Astro, Nuxt) fetch at build time or server-side and revalidate periodically instead of on every page view; for pure client-side sites, a short `sessionStorage` cache avoids refetching on each navigation
-- **Links and photos:** before you put `url` or `profilePicture` into `href` or `src`, accept only `http:` and `https:` URLs (check `new URL(value).protocol`) and leave the link or photo out otherwise. Escaping the text does not make a URL safe.
+- **Links and photos:** before you put `url` or `profilePicture` into `href` or `src`, accept only `http:` and `https:` URLs and leave the link or photo out otherwise; the fields can also be missing. For example `const safeUrl = v => { try { const u = new URL(v); return ['http:', 'https:'].includes(u.protocol) ? u.href : null; } catch { return null; } };`. Escaping the text does not make a URL safe.
 - **Forest link:** Always link to the forest page: `https://reviewforest.org/{slug}`
 - **Star ratings:** 1-5 per review, sometimes with a decimal (render partial stars or round), and skip the stars when a review has no `score`; aggregate `score` on the forest (e.g. "4.8")
