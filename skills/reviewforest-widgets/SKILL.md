@@ -48,8 +48,9 @@ The user will usually provide the full snippet with their UUID. If they only pro
 | 2-in-1 badge | Yes | See floating vs fixed position below |
 | Mini review score | No | Compact — place inline where user wants |
 | Mini tree counter | No | Compact — place inline where user wants |
+| Review list | No | Large widget, like the carousel: give it a wide container. |
 
-All widgets use container queries and will adapt to their parent's width, but large widgets (carousel, forest page) will look poor in narrow containers.
+All widgets use container queries and will adapt to their parent's width, but large widgets (carousel, review list, forest page) will look poor in narrow containers.
 
 The dashboard may offer widget types this table doesn't list yet. For an unlisted type, ask the user whether it is a large widget (give it a wide container) or a compact one (place it inline).
 
@@ -77,6 +78,7 @@ If the site sends a Content Security Policy (a `Content-Security-Policy` header 
 - `script-src`: `https://widgets.reviewforest.org`
 - `connect-src`: `https://api.reviewforest.org` (widget data) and `https://cdn.comvi.io` (widget texts)
 - `img-src`, if the policy restricts it: `https://widgets.reviewforest.org` (platform logos and icons) and the hosts of reviewers' profile photos. Today the photos load straight from Google and Facebook (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`); after an upcoming ReviewForest release they all load from `https://api.reviewforest.org`. Allow both now so photos keep working across the switch; after the release `https://api.reviewforest.org` alone is enough.
+- Widgets still on version 1.0 also need `img-src data:` and `style-src 'unsafe-inline'`, because they inject a `<style>` tag and inline images. Updating them to version 2.0 in the dashboard avoids this.
 - The review forest page widget also loads a Mapbox map, more images and its own styles, so a strict policy needs more for it. Load the page and check the browser console for blocked requests.
 
 ## Approach 2: Custom Rendering via API
@@ -87,9 +89,9 @@ Fetch data from the ReviewForest API and render reviews in the user's framework.
 
 The user needs an API key with the access type **Website-Widgets**. At https://app.reviewforest.org/integrations/public-api they click **Create new key**, set **Type of data access** to **Website-Widgets** (the default is Read-only) and click **Create key**. The account has to be activated first (plan chosen, payment details added); the dashboard asks for it otherwise.
 
-**What this key can do:** it only reads, and only seven `GET` routes: the four forest routes below and three widget routes (`/v1/widgets`, `/v1/widgets/{uuid}`, `/v1/widgets/{uuid}/reviews`). Every other route that needs a key answers it with `401` or `403`, so it can't write anything or reach invoices and account details. That's why it may sit in client-side JavaScript, where it is visible in the page source. (Calls to `/v1/widgets/{uuid}` and `/v1/widgets?uuids=…` count as impressions of those widgets, so don't poll them.)
+**What this key can do:** it only reads, and only seven `GET` routes: the four forest routes below and three widget routes (`/v1/widgets`, `/v1/widgets/{uuid}`, `/v1/widgets/{uuid}/reviews`). Every other route that needs a key answers it with `401` or `403`, so it can't write anything or read invoices or user data. That's why it may sit in client-side JavaScript, where it is visible in the page source. (Calls to `/v1/widgets/{uuid}` and `/v1/widgets?uuids=…` count as impressions of those widgets, so don't poll them.)
 
-**What that means:** anyone who copies the key from the page can call those routes too, for **every** review forest in the account, not just the one on the page. They get forest names, scores and counts, display settings, connected platforms, reviews, the tree feed with reviewer names and photos, and the widget settings. The responses leave out email addresses, billing references and the access tokens of connected Google and Facebook accounts. If the account has forests that shouldn't be public, fetch the data on the server or at build time (see **Caching** below) and keep the key out of the browser.
+**What that means:** anyone who copies the key from the page can call those routes too, for **every** review forest in the account, not just the one on the page. They get forest names, scores and counts, display settings, connected platforms, reviews, the tree feed with reviewer names and photos, and the widget settings, plus the company ID, plan, subscription status and planting limit of the account (the widget routes return these even without a key) and its recurring extra-tree settings. The responses leave out email addresses, billing references and the access tokens of connected Google and Facebook accounts. If the account has forests that shouldn't be public, fetch the data on the server or at build time (see **Caching** below) and keep the key out of the browser.
 
 Never put a key with the access type **Read-only** or **Full access** into frontend code: those also read invoices and account details, and Full access can change data. The dashboard's key list shows each key's type in the **Data access** column; if you're not sure which type a key the user gave you has, ask. Details: [references/api.md](references/api.md#the-website-widgets-key)
 
@@ -221,7 +223,7 @@ Review content comes in two formats. **Note:** only the plain `text` form is ret
 - **Simple:** `text` field contains the full review text as a string
 - **Structured:** `texts[]` and/or `ratings[]` arrays — the review broken down by topics. Each element has `id` (topic key) and `text` (may contain basic HTML formatting — sanitize before rendering).
 
-An item may have `texts` only, `ratings` only, or both — combine them when rendering. Check for `texts`/`ratings` arrays first; if present, render each topic with its heading and text. If neither array is present, fall back to the plain `text` field.
+An item may have `texts` only, `ratings` only, or both — combine them when rendering. Check the `texts`/`ratings` arrays first; if they have entries, render each topic with its heading and text. If neither array has entries, fall back to the plain `text` field.
 
 See [references/api.md](references/api.md) for the full list of topic keys and their display labels.
 

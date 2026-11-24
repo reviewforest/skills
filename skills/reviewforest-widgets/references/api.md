@@ -30,7 +30,7 @@ A Website-Widgets key can only read, and only these seven routes:
 
 Any other route that needs a key answers this one with `401` or `403`. It can't write either: wherever a key is needed, methods other than `GET` get `403`. The custom rendering in the skill needs only the four forest routes. Two widget calls answer without any key, because the embed widgets make them from every visitor's browser: `GET /v1/widgets/{uuid}/reviews` and `GET /v1/widgets?uuids=…`. Each call to `GET /v1/widgets/{uuid}` or `GET /v1/widgets?uuids=…` counts as an impression of those widgets, so don't poll them.
 
-For this key type the responses leave out email addresses, billing and subscription references, and the access tokens and owner details of connected Google and Facebook accounts. Trees come without `invoiceNumber` and `unPaid`. Everything else the seven routes return stays readable: forest names and slugs, scores and counts, display settings, connected platforms with their listing IDs (`platforms[].keys`), reviews, trees with reviewer names and photos, and widget settings.
+For this key type the responses leave out email addresses, billing and subscription references, and the access tokens and owner details of connected Google and Facebook accounts. Trees come without `invoiceNumber` and `unPaid`. Everything else the seven routes return stays readable: forest names and slugs, scores and counts, display settings, connected platforms with their listing IDs (`platforms[].keys`), reviews, trees with reviewer names and photos, widget settings, the account's company ID, plan, subscription status and planting limit (the widget routes return these even without a key), and recurring extra-tree settings.
 
 **Once the key is in a page, treat all of that as public.** Anyone can copy the key from the page source and call these routes, for **every** review forest in the account, not only the one the page shows. If some forests must stay private, call the API on the server or at build time and keep the key out of the browser. Create a separate key for the website rather than reusing an existing one, so it can be deleted on its own. Never put a **Read-only** or **Full access** key into frontend code: those keys also read invoices and account details, and Full access can change data.
 
@@ -354,7 +354,7 @@ Review-type trees carry the review text in one of two forms (`GET /v1/widgets/{u
 }
 ```
 
-A tree may have `texts` only, `ratings` only, or both — combine them when rendering. If neither array is present, fall back to the plain `text` field.
+A tree may have `texts` only, `ratings` only, or both — combine them when rendering. If neither array has entries, fall back to the plain `text` field.
 
 #### Review topic keys
 
