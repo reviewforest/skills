@@ -124,6 +124,10 @@ If showing individual reviews, ask about:
 - **Sorting** — by date or name
 - **Filtering** — show only reviews with text, or all
 
+### Steps 1-4: the forest routes (server or build time only)
+
+Steps 1-4 use the forest routes, which need the Website-Widgets key, so run them on the server or at build time and pass on only what the page shows. For reviews and totals on a public page, the keyless widget routes are enough; see the **Example** below and [Keyless widget routes](references/api.md#keyless-widget-routes).
+
 ### Step 1: Get Forest ID
 
 ```
