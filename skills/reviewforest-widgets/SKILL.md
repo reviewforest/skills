@@ -206,9 +206,9 @@ Query params: `sortBy` (date/name), `order` (asc/desc), `pageSize` (10/15/20/25/
 
 Each tree has a `type`:
 - **`review`** — a tree for a review. Has `name` (planter), `date`, `score`, `title`, `text` (and possibly `texts[]`/`ratings[]`), `platformType`, and `url` (link to the original review on the source platform). Can have `profilePicture`, the reviewer's photo URL (see **Content Security Policy** under Design Guidance).
-- **`additionalTree`** — manually planted.
+- **`additionalTree`** — manually planted. Has `name`, `date`, and `occasion` instead of review data.
 
-On a public page, show a review tree's reviewer details (name, photo, text, review link) only from the matching widget review (same `uniqueId` in `GET /v1/widgets/{uuid}/reviews`); without a match, show only the tree's own data (date, planting project, tree link). That keeps anonymized reviewers anonymous. Has `name`, `date`, and `occasion` instead of review data.
+On a public page, show a review tree's reviewer details (name, photo, text, review link) only from the matching widget review (same `uniqueId` in `GET /v1/widgets/{uuid}/reviews`); without a match, show only the tree's own data (date, planting project, tree link). That keeps anonymized reviewers anonymous.
 
 Both also include `pageTreeUrl` (link to the tree on the forest page) and `plantingProject` (project name). `text` is user-generated content — the same XSS rules in Step 5 apply.
 
