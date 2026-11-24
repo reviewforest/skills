@@ -7,7 +7,7 @@ description: Display your ReviewForest reviews on your website. Embed an officia
 
 Integrate ReviewForest review widgets into any website. Two approaches:
 
-1. **Widget embed (recommended)** — Create and customize a widget in the ReviewForest dashboard, then add a small code snippet to the site. 7 widget types available. Works with any site.
+1. **Widget embed (recommended)** — Create and customize a widget in the ReviewForest dashboard, then add a small code snippet to the site. Works with any site.
 2. **Custom rendering via API** — Fetch review data from the ReviewForest API and render it in the user's own framework (React, Vue, HTML, etc.). No external JavaScript. Full styling control.
 
 ## Which Approach?
@@ -17,10 +17,10 @@ Integrate ReviewForest review widgets into any website. Two approaches:
 
 ## Getting Started
 
-Ask the user which approach they want:
+Confirm the approach (default: **widget embed**) and collect the matching prerequisite:
 
 - **Widget embed** — the user creates a widget at https://app.reviewforest.org/website-widgets/add (or copies the snippet from an existing one at https://app.reviewforest.org/website-widgets/installed), then provides the embed snippet (or just the UUID). See **Approach 1**.
-- **Custom rendering** — the user creates an API key with the **Website-Widgets** scope at https://app.reviewforest.org/integrations/public-api. See **Approach 2**. Detailed API reference: [references/api.md](references/api.md)
+- **Custom rendering** — the user creates a widget in the dashboard (it decides which reviews show) and provides its UUID; its review feed and totals need no key. Only forest data the widget routes don't carry, such as per-platform scores, needs an API key with the access type **Website-Widgets** (https://app.reviewforest.org/integrations/public-api), used on the server or at build time. See **Approach 2**. Detailed API reference: [references/api.md](references/api.md)
 
 ## Approach 1: Widget Embed (Recommended)
 
@@ -43,19 +43,22 @@ The user will usually provide the full snippet with their UUID. If they only pro
 |--------|:-----------------:|-----------------|
 | Testimonials carousel | No | Place where user wants. Needs a wide container — use a full-width or centered container (like Bootstrap/Tailwind `container`). Avoid narrow fixed-width parents. |
 | Review forest page | No | Full-page widget. Give it maximum width — ideally no container constraints, or only a centered container. Do not place inside narrow columns. |
-| Review score badge | Yes | See floating vs fixed position below |
+| Review score badge | Yes | See floating vs fixed position below. Single forests only |
 | Tree counter badge | Yes | See floating vs fixed position below |
-| 2-in-1 badge | Yes | See floating vs fixed position below |
-| Mini review score | No | Compact — place inline where user wants |
+| 2-in-1 badge | Yes | See floating vs fixed position below. Single forests only |
+| Mini review score | No | Compact — place inline where user wants. Single forests only |
 | Mini tree counter | No | Compact — place inline where user wants |
+| Review list | No | Large widget, like the carousel: give it a wide container. |
 
-All widgets use container queries and will adapt to their parent's width, but large widgets (carousel, forest page) will look poor in narrow containers.
+All widgets use container queries and will adapt to their parent's width, but large widgets (carousel, review list, forest page) will look poor in narrow containers.
+
+The dashboard may offer widget types this table doesn't list yet. For an unlisted type, ask the user whether it is a large widget (give it a wide container) or a compact one (place it inline).
 
 ### Floating vs Fixed Position
 
 Badge widgets (Review score badge, Tree counter badge, 2-in-1 badge) support two behaviors, configured in the dashboard. Ask the user which behavior they chose:
 
-- **Floating:** Place the `<div>` before the closing `</body>` tag. The widget will float over the page in a fixed position.
+- **Floating:** Place the `<div>` right before the closing `</body>` tag. The badge then floats over the page in a bottom corner of the browser window (left or right, set in the dashboard). The `<div>` may also sit anywhere else inside `<body>`, as long as none of its parent elements has CSS such as `transform`, `filter`, `contain` or `container-type`, which would pin the badge to that element instead of the window.
 - **Fixed position:** Place the `<div>` exactly where the user wants it in the page layout.
 
 ### Multiple Widgets
@@ -68,24 +71,38 @@ Include the script tag only once. Add multiple `<div>` elements with different U
 <div class="reviewforest-app-UUID_2"></div>
 ```
 
+### Content Security Policy
+
+If the site sends a Content Security Policy (header or `<meta http-equiv>` tag), add these sources to the directives that block them (the browser console names them):
+
+- scripts: `https://widgets.reviewforest.org`
+- connections: `https://api.reviewforest.org` (widget data) and `https://cdn.comvi.io` (widget texts)
+- images, if restricted: `https://widgets.reviewforest.org` (logos and icons) and the reviewer photos, which today load from Google and Facebook (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`) and after an upcoming ReviewForest release from `https://api.reviewforest.org`; allow both for now.
+
+Keep the policy's existing sources: if you add a directive it doesn't have yet, copy in the sources of the directive it falls back to (usually `default-src`). If the site uses a nonce with `'strict-dynamic'`, put its nonce on the widget `<script>` tag. Widgets still on version 1.0 inject a `<style>` element and inline images that strict policies block; update them to version 2.0 in the dashboard where it's available, rather than loosening the policy. The review forest page widget also loads a Mapbox map and more images; check the console for blocked requests.
+
 ## Approach 2: Custom Rendering via API
 
-Fetch data from the ReviewForest API and render reviews in the user's framework. Use this when the pre-built widgets don't fit the user's design needs. No external scripts needed. Requires an API key.
+Fetch data from the ReviewForest API and render reviews in the user's framework. Use this when the pre-built widgets don't fit the user's design needs. No external scripts needed. Needs the UUID of a widget created in the dashboard; an API key only for forest data the widget routes don't return.
 
 ### Prerequisites
 
-The user needs an API key. Create one at https://app.reviewforest.org/integrations/public-api
+For a public page the user creates a widget at https://app.reviewforest.org/website-widgets/add (its settings decide which reviews show) and gives you its UUID. The widget's review feed and its totals need no key (see the example below). For forest data the widget routes don't carry, such as per-platform scores, the user needs an API key with the access type **Website-Widgets**. At https://app.reviewforest.org/integrations/public-api they click **Create new key**, set **Type of data access** to **Website-Widgets** (the default is Read-only) and click **Create key**. The account has to be activated first (plan chosen, payment details added); the dashboard asks for it otherwise.
 
-**Important:** When creating the API key, select the **Website-Widgets** scope. This scope only exposes the read-only endpoints widgets need, so the key is safe to use in client-side JavaScript and cannot reach the rest of the user's data. The key will be visible in the page source — that's expected and safe with this scope.
+**What this key can do:** it only reads, and only seven `GET` routes: the four forest routes below and three widget routes (`/v1/widgets`, `/v1/widgets/{uuid}`, `/v1/widgets/{uuid}/reviews`). Every other route that needs a key answers it with `401` or `403`, so it can't write anything or read invoices or user data. Even so, keep it out of the browser: call the forest routes on the server or at build time (see **Caching** below) and pass on only the fields the page shows. For a public page the keyless widget routes are enough (see the example below). (Calls to `/v1/widgets/{uuid}` and `/v1/widgets?uuids=…` count as impressions of those widgets, so don't poll them.)
 
-The scope grants read-only access to exactly these endpoints — use only these:
+**If the key ends up in a page anyway,** anyone who copies it can call those routes too, for **every** review forest in the account, not just the one on the page. They get forest names, scores and counts, display settings, connected platforms, reviews, the tree feed with reviewer names and photos, and the widget settings, plus the company ID, plan and subscription status of the account, each forest's planting limit (the widget routes return these even without a key) and its recurring extra-tree settings. The responses leave out email addresses, billing references and the access tokens of connected Google and Facebook accounts. Treat everything those routes return as public once the key is in a page.
+
+Never put a key with the access type **Read-only** or **Full access** into frontend code: those also read invoices and account details, and Full access can change data. The dashboard's key list shows each key's type in the **Data access** column; if you're not sure which type a key the user gave you has, ask. Details: [references/api.md](references/api.md#the-website-widgets-key)
+
+The custom rendering in this skill uses these four routes:
 
 - `GET /v1/forests`
 - `GET /v1/forests/{forestId}`
 - `GET /v1/forests/{forestId}/reviews`
 - `GET /v1/forests/{forestId}/trees`
 
-All API requests require the `apikey` header:
+Requests to these four routes need the key in the `apikey` header:
 
 ```
 apikey: YOUR_API_KEY
@@ -100,12 +117,16 @@ Clarify with the user what they want to show. Available data:
 - **Tree count** — total, from reviews, additional, or broken down by period
 - **Platform info** — connected platforms with per-platform scores and review counts
 - **Individual reviews** — reviewer name, score, text, date, platform
-- **Individual trees** — a feed of planted trees: planter name, date, and either the source review (score/text/platform) or the occasion for manually planted ones
+- **Individual trees** — on a public page only as date and planting project per tree; the full feed (planter name, source review or occasion) only behind a login
 - **Forest link** — link to the public forest page
 
 If showing individual reviews, ask about:
 - **Sorting** — by date or name
 - **Filtering** — show only reviews with text, or all
+
+### Steps 1-4: the forest routes (server or build time only)
+
+Steps 1-4 use the forest routes, which need the Website-Widgets key, so run them on the server or at build time and pass on only what the page shows. For reviews and totals on a public page, the keyless widget routes are enough; see the **Example** below and [Keyless widget routes](references/api.md#keyless-widget-routes).
 
 ### Step 1: Get Forest ID
 
@@ -117,7 +138,7 @@ Returns `{ query, count, data: [Forest, ...] }`. Each forest has an `id` (string
 
 Always request `pageSize=100` when listing forests. If `count` is greater than the number of items returned, fetch additional pages until you have the full list.
 
-If the user has one forest overall, use it automatically. If multiple, show the complete list (use `name` to identify) and let the user choose.
+If you start from a widget, use its `forestId` (from `GET /v1/widgets?uuids=`) instead of choosing a forest, so the data matches the widget's reviews. Otherwise: if the user has one forest overall, use it automatically. If multiple, show the complete list (use `name` to identify) and let the user choose.
 
 Query params: `sortBy` (createdAt/name/score/reviewAmount/totalTreeAmount), `order` (asc/desc), `pageSize` (10/15/20/25/50/100), `page`.
 
@@ -133,7 +154,7 @@ Key fields:
 - `name` — business/forest name
 - `slug` — forest page slug (link to `https://reviewforest.org/{slug}`)
 - `score` — aggregate rating (string, e.g. "4.8")
-- `reviewAmount` — total review count
+- `reviewAmountOnPlatform` — total reviews on the source platforms (the count the badges show); `reviewAmount` counts only the reviews imported into ReviewForest
 - `totalTreeAmount` — total trees planted
 - `reviewTreeAmount` — trees from reviews
 - `additionalTreeAmount` — manually planted trees
@@ -143,7 +164,9 @@ Key fields:
   - `typeDisplayName` — human-readable platform name (e.g. "Google")
   - `name` — business listing name on that platform (NOT the platform name)
   - `score` — platform-specific rating
-  - `reviewAmount` — reviews on that platform
+  - `reviewAmountOnPlatform` — reviews on that platform (`reviewAmount`: the ones imported into ReviewForest)
+
+**Brand forests:** if the forest's `type` is `"brand"` it has **no** `platforms`/`platformsOrder`. Instead it returns a `channels[]` array — each channel is itself a forest object (with its own `platforms[]`). Guard for this before reading `platforms` (e.g. `forest.platforms ?? forest.channels?.flatMap(c => c.platforms ?? []) ?? []`), or stick to single forests. Regular forests have `type: "single"`.
 
 ### Step 3: Get Reviews (optional)
 
@@ -157,16 +180,17 @@ Returns `{ query, count, data: [Review, ...] }`.
 
 Query params: `sortBy` (date/name), `order` (asc/desc), `pageSize` (10/15/20/25/50/100), `page`, `showReviewOnlyWithText` (true/false — filter to only show reviews that have text).
 
-Ask the user how they want reviews sorted and whether to show only reviews with text.
+Ask the user how they want reviews sorted and whether to show only reviews with text. `showReviewOnlyWithText=true` also counts structured text, so a few reviews (OMR reviews, for example) still arrive without `text`; skip those in your code as well.
 
 Key fields from each review:
 - `name` — reviewer display name
-- `score` — 1-5 star rating (integer)
-- `title` — review title (may be null)
-- `text` — review text (may be null)
-- `texts[]` / `ratings[]` — structured review (see Review Text Structure below)
+- `score` — 1-5 star rating; can have a decimal (OMR reviews, for example, come in halves like 4.5). Can be missing for a few imported reviews whose rating could not be read, so render stars only when `Number.isFinite(score)`
+- `text` — review text (can be missing or null)
 - `date` — ISO date string
 - `platformType` — source platform (see platform types below)
+- `url` — link to the review on the ReviewForest forest page
+
+This endpoint returns the plain `text` only — it does **not** return `title` or the structured `texts[]`/`ratings[]` breakdown. For Kununu, Glassdoor and G2 that plain `text` is flattened, shortened or empty; see [Review Text Structure](#review-text-structure) for where the topic-by-topic content comes from. This is the forest's review list; the trees feed in Step 4 is not. For a review list on a public page, use the review feed of the forest's embed widget instead (`GET /v1/widgets/{uuid}/reviews`, see [references/api.md](references/api.md)): it is the list ReviewForest itself shows publicly, applies the widget's dashboard filters, leaves out reviews whose reviewer asked to be anonymized, and needs no key in the browser. Use `/reviews` only for views behind a login, such as an internal dashboard. Public pages, including pages rendered on the server or at build time, use the widget feed, with the widget's display settings applied before rendering names, text or stars.
 
 ### Step 4: Get Trees (optional)
 
@@ -174,17 +198,20 @@ Key fields from each review:
 GET https://api.reviewforest.org/v1/forests/{forestId}/trees
 ```
 
-Only needed if the user wants to display the individual planted trees (a "tree feed") rather than just the aggregate tree counts from Step 2.
+Only needed if the user wants to display individual tree records (a "tree feed") rather than just the aggregate tree counts from Step 2. The feed holds only the reviews that planted a tree (a forest can pause or cap planting) plus manually planted trees, so it is no substitute for the review list in Step 3.
 
 Returns `{ query, count, data: [Tree, ...] }`.
 
 Query params: `sortBy` (date/name), `order` (asc/desc), `pageSize` (10/15/20/25/50/100), `page`.
 
 Each tree has a `type`:
-- **`review`** — planted from a review. Has `name` (planter), `date`, `score`, `title`, `text` (and possibly `texts[]`/`ratings[]`), `platformType`, and `url` (link to the original review on the source platform).
+- **`review`** — a tree for a review. Has `name` (planter), `date`, `score`, `title`, `text` (and possibly `texts[]`/`ratings[]`), `platformType`, and `url` (link to the original review on the source platform). Can have `profilePicture`, the reviewer's photo URL (see **Content Security Policy** under Design Guidance).
 - **`additionalTree`** — manually planted. Has `name`, `date`, and `occasion` instead of review data.
 
+On a public page, show trees only as counts or with their date and planting project, and take review content from the widget feed. The feed's reviewer details (name, photo, text, links) belong behind a login: it can still carry a copy of a review whose reviewer asked to be anonymized, and it includes trees that are not settled yet.
+
 Both also include `pageTreeUrl` (link to the tree on the forest page) and `plantingProject` (project name). `text` is user-generated content — the same XSS rules in Step 5 apply.
+
 
 See [references/api.md](references/api.md) for the full Tree object.
 
@@ -198,12 +225,12 @@ Use the user's framework and match existing code patterns. For React — create 
 
 ### Review Text Structure
 
-Reviews can have two formats:
+Review content comes in two formats. **Note:** only the plain `text` form is returned by the `/reviews` endpoint. The structured form comes with review-type **trees** (from the `/trees` endpoint), which cover only reviews that planted a tree, and with `GET /v1/widgets/{uuid}/reviews`, the review feed of an embed widget: every review that widget shows, after its dashboard filters, and public (no key needed). On a public page, take review names and texts only from the widget feed.
 
 - **Simple:** `text` field contains the full review text as a string
-- **Structured:** `texts[]` and/or `ratings[]` arrays — review broken down by topics. Each element has `id` (topic key) and `text` (may contain basic HTML formatting — sanitize before rendering).
+- **Structured:** `texts[]` and/or `ratings[]` arrays — the review broken down by topics. Each element usually has `id` (topic key) and `text` (may contain basic HTML formatting — sanitize before rendering); a few Kununu entries are plain strings, render those as they are.
 
-A review may have `texts` only, `ratings` only, or both — combine them when rendering. When rendering, check for `texts`/`ratings` arrays first. If present, render each topic with its heading and text. If neither array is present, fall back to the plain `text` field.
+An item may have `texts` only, `ratings` only, or both — combine them when rendering. Check the `texts`/`ratings` arrays first; if they have entries, render each topic with its heading and text. If neither array has entries, fall back to the plain `text` field.
 
 See [references/api.md](references/api.md) for the full list of topic keys and their display labels.
 
@@ -217,15 +244,16 @@ See [references/api.md](references/api.md) for the full list of topic keys and t
 | `amazon` | Amazon | Product |
 | `kununu` | Kununu | Employee |
 | `glassdoor` | Glassdoor | Employee |
-| `applePodcasts` | Apple Podcasts | Business |
+| `applepodcasts` | Apple Podcasts | Business |
 | `g2` | G2 | Business |
 | `gartner` | Gartner | Business |
 | `provenexpert` | ProvenExpert | Business |
 | `appleappstore` | App Store | Application |
 | `googleplaystore` | Google Play | Application |
 | `trustedshops` | Trusted Shops | Business |
-| `reviewforest` | ReviewForest Direct | Business |
+| `reviewforest` | ReviewForest | Business |
 | `omr` | OMR | Business |
+| `tripadvisor` | Tripadvisor | Business |
 
 ### Platform Logos
 
@@ -243,7 +271,7 @@ https://www.google.com/s2/favicons?domain=DOMAIN&sz=SIZE
 | `amazon` | amazon.com |
 | `kununu` | kununu.com |
 | `glassdoor` | glassdoor.com |
-| `applePodcasts` | podcasts.apple.com |
+| `applepodcasts` | podcasts.apple.com |
 | `g2` | g2.com |
 | `gartner` | gartner.com |
 | `provenexpert` | provenexpert.com |
@@ -252,30 +280,53 @@ https://www.google.com/s2/favicons?domain=DOMAIN&sz=SIZE
 | `trustedshops` | trustedshops.com |
 | `reviewforest` | reviewforest.org |
 | `omr` | omr.com |
+| `tripadvisor` | tripadvisor.com |
 
 ### Example (Reference Only)
 
 This is a minimal reference for correct API usage patterns. Do not copy-paste — adapt to the user's framework and project structure.
 
 ```javascript
-// Fetch forest data and reviews
+// Public page: the keyless widget routes, with the UUID of a widget the user created in
+// the dashboard. No API key in the browser.
 const API = 'https://api.reviewforest.org/v1';
-const headers = { apikey: 'USER_API_KEY' };
 
-const forest = await fetch(`${API}/forests/${forestId}`, { headers }).then(r => r.json());
-const { data: reviews } = await fetch(`${API}/forests/${forestId}/reviews?pageSize=10&showReviewOnlyWithText=true`, { headers }).then(r => r.json());
+async function loadWidgetReviews(widgetUuid) {
+  const getJson = async (url) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`ReviewForest API ${res.status}`); // caller hides the section
+    return res.json();
+  };
+  // counts as one impression of the widget, like the embed's own request
+  const { data: [widget] } = await getJson(`${API}/widgets?uuids=${encodeURIComponent(widgetUuid)}`);
+  if (!widget) return null; // unknown or deleted UUID (200 with an empty list): render nothing
+  // the widget's dashboard filters applied, anonymized reviews left out; not counted as an impression
+  const { data: reviews } = await getJson(`${API}/widgets/${encodeURIComponent(widgetUuid)}/reviews`); // the widget's own page size
+  return { widget, reviews };
+}
 
-// forest.score, forest.reviewAmount, forest.totalTreeAmount, forest.slug
+// widget.data.score, .reviewAmountOnPlatform (the review count the badges show; .reviewAmount
+// counts imported reviews), .totalTreeAmount, .slug, .displaySettings
+// (widget.data.platforms ?? []) — single forests list their platforms there
+// reviews[].name, .score (can be missing), .text, .texts[]/.ratings[] (structured reviews),
+// .date, .platformType, .url, .profilePicture (use url/profilePicture only if they are http(s))
+
+// Forest data the widget routes don't return (per-platform scores, typeDisplayName) needs the
+// Website-Widgets key: fetch it on the server or at build time and pass on only what the page shows.
+// Use the widget's own forest, so the extra data matches the reviews shown:
+// const forest = await fetch(`${API}/forests/${widget.forestId}`, { headers: { apikey: process.env.RF_API_KEY } }).then(r => r.json());
 // forest.platforms[].type, forest.platforms[].typeDisplayName, forest.platforms[].score
-
-// reviews[].name, reviews[].score, reviews[].text, reviews[].title
-// reviews[].texts[] / reviews[].ratings[] — structured, sanitize HTML before rendering
-// reviews[].platformType
+// (brand forests have no forest.platforms — use forest.channels[] instead)
 ```
 
 ### Design Guidance
 
-- **CORS:** The API supports CORS — call endpoints directly from browser JavaScript, no backend proxy needed
-- **Platform name:** Use `platforms[].typeDisplayName` for the human-readable platform name, NOT `platforms[].name` which is the business listing name
+- **CORS:** The API supports CORS, so the keyless widget routes can be called straight from browser JavaScript. Calls that need the key belong on the server or in the build.
+- **Platform name:** Prefer the API's `platforms[].typeDisplayName` for the human-readable platform name, NOT `platforms[].name` (the business listing name). If you map platform types yourself, fall back to capitalizing the raw `platformType` for any type not in the table above — the platform list grows over time
+- **Error handling:** Check `res.ok`. The forest endpoints return `401` (missing/invalid key), `404` (unknown forest, or one from another account), or `400` (malformed id). On error, hide the widget rather than rendering `undefined`
+- **Display settings:** apply the forest's `displaySettings` the way the embed widgets do. If `showReviewerInitialOnly` is true, show only the reviewer's initials instead of `name`; if `showReviewTextAndScore` is false, leave out the review text and stars. The API returns full names either way, so this is up to your code
+- **Content Security Policy:** if the site has one, allow `https://api.reviewforest.org` for connections and the photo hosts listed under **Content Security Policy** in Approach 1 for images (`profilePicture`). Platform logos from Google's favicon service need `https://www.google.com` and `https://*.gstatic.com`.
+- **Caching:** Review data changes infrequently. On static/SSR frameworks (Next.js, Astro, Nuxt) fetch at build time or server-side and revalidate periodically instead of on every page view; for pure client-side sites, a short `sessionStorage` cache avoids refetching on each navigation
+- **Links and photos:** before you put `url` or `profilePicture` into `href` or `src`, accept only `http:` and `https:` URLs and leave the link or photo out otherwise; the fields can also be missing. For example `const safeUrl = v => { try { const u = new URL(v); return ['http:', 'https:'].includes(u.protocol) ? u.href : null; } catch { return null; } };`. Escaping the text does not make a URL safe.
 - **Forest link:** Always link to the forest page: `https://reviewforest.org/{slug}`
-- **Star ratings:** 1-5 per review; aggregate `score` on the forest (e.g. "4.8")
+- **Star ratings:** 1-5 per review, sometimes with a decimal (render partial stars or round), and skip the stars when a review has no `score`; aggregate `score` on the forest (e.g. "4.8")
