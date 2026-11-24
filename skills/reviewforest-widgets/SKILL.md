@@ -78,7 +78,7 @@ If the site sends a Content Security Policy (a `Content-Security-Policy` header 
 - `script-src`: `https://widgets.reviewforest.org`
 - `connect-src`: `https://api.reviewforest.org` (widget data) and `https://cdn.comvi.io` (widget texts)
 - `img-src`, if the policy restricts it: `https://widgets.reviewforest.org` (platform logos and icons) and the hosts of reviewers' profile photos. Today the photos load straight from Google and Facebook (`https://*.googleusercontent.com`, `https://*.ggpht.com`, `https://*.fbcdn.net`, `https://*.fbsbx.com`); after an upcoming ReviewForest release they load from `https://api.reviewforest.org` instead (photos already hosted on `reviewforest.org` or its subdomains keep their address). Allow both now so photos keep working across the switch, and keep the platform hosts until ReviewForest has announced the release and you have tested the narrower policy against real photo requests (a quiet console proves nothing while the old hosts are still allowed).
-- Widgets still on version 1.0 also need `img-src data:` and `'unsafe-inline'` for styles (in `style-src-elem` if the policy has it, otherwise `style-src`), because they inject a `<style>` tag and inline images. Updating them to version 2.0 in the dashboard avoids this. Where the style policy uses a nonce or hash, browsers ignore `'unsafe-inline'`, so version 1.0 widgets stay unstyled there: update them, or render the reviews yourself (Approach 2).
+- Widgets still on version 1.0 inject a `<style>` element and inline images, so they also need `img-src data:` and `'unsafe-inline'` for that `<style>` element. Put it into `style-src-elem` (if the policy doesn't have that directive yet, add it with the sources of `style-src` plus `'unsafe-inline'`), never into `style-src`, which would allow inline style attributes on the whole page. Updating the widgets to version 2.0 in the dashboard avoids all this. Where the style policy uses a nonce or hash, browsers ignore `'unsafe-inline'`, so version 1.0 widgets stay unstyled there: update them, or render the reviews yourself (Approach 2).
 - The review forest page widget also loads a Mapbox map, more images and its own styles, so a strict policy needs more for it. Load the page and check the browser console for blocked requests.
 
 ## Approach 2: Custom Rendering via API
@@ -117,7 +117,7 @@ Clarify with the user what they want to show. Available data:
 - **Tree count** — total, from reviews, additional, or broken down by period
 - **Platform info** — connected platforms with per-platform scores and review counts
 - **Individual reviews** — reviewer name, score, text, date, platform
-- **Individual trees** — a feed of planted trees: planter name, date, and either the source review (score/text/platform) or the occasion for manually planted ones
+- **Individual trees** — on a public page only as date and planting project per tree; the full feed (planter name, source review or occasion) only behind a login
 - **Forest link** — link to the public forest page
 
 If showing individual reviews, ask about:
@@ -226,7 +226,7 @@ Use the user's framework and match existing code patterns. For React — create 
 
 ### Review Text Structure
 
-Review content comes in two formats. **Note:** only the plain `text` form is returned by the `/reviews` endpoint. The structured form comes with review-type **trees** (from the `/trees` endpoint), which cover only reviews that planted a tree, and with `GET /v1/widgets/{uuid}/reviews`, the review feed of an embed widget: every review that widget shows, after its dashboard filters, and public (no key needed). On a public page, take review names and texts only from the widget feed, also when you show them next to a tree: it leaves out reviews whose reviewer asked to be anonymized, while the tree feed can still carry another copy of the same review (a brand forest can hold one per channel). Read the tree feed's review content only in views behind a login.
+Review content comes in two formats. **Note:** only the plain `text` form is returned by the `/reviews` endpoint. The structured form comes with review-type **trees** (from the `/trees` endpoint), which cover only reviews that planted a tree, and with `GET /v1/widgets/{uuid}/reviews`, the review feed of an embed widget: every review that widget shows, after its dashboard filters, and public (no key needed). On a public page, take review names and texts only from the widget feed and don't pair them with individual trees: it leaves out reviews whose reviewer asked to be anonymized, while the tree feed can still carry another copy of the same review (a brand forest can hold one per channel). Read the tree feed's review content only in views behind a login.
 
 - **Simple:** `text` field contains the full review text as a string
 - **Structured:** `texts[]` and/or `ratings[]` arrays — the review broken down by topics. Each element usually has `id` (topic key) and `text` (may contain basic HTML formatting — sanitize before rendering); some Kununu entries are plain strings, so render a string entry as is, skip empty entries, and fall back to `text` when no topic content is left.
@@ -302,7 +302,7 @@ async function loadWidgetReviews(widgetUuid) {
   const { data: [widget] } = await getJson(`${API}/widgets?uuids=${encodeURIComponent(widgetUuid)}`);
   if (!widget) return null; // unknown or deleted UUID (200 with an empty list): render nothing
   // the widget's dashboard filters applied, anonymized reviews left out; not counted as an impression
-  const { data: reviews } = await getJson(`${API}/widgets/${encodeURIComponent(widgetUuid)}/reviews?pageSize=10`);
+  const { data: reviews } = await getJson(`${API}/widgets/${encodeURIComponent(widgetUuid)}/reviews`); // the widget's own page size
   return { widget, reviews };
 }
 
