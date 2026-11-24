@@ -73,7 +73,7 @@ Include the script tag only once. Add multiple `<div>` elements with different U
 
 ### Content Security Policy
 
-If the site sends a Content Security Policy (a `Content-Security-Policy` header or `<meta http-equiv>` tag), extend it, or the widgets stay empty. If the policy also sets `script-src-elem` or `style-src-elem`, add the same sources there too, because those take precedence for `<script>` and `<style>` elements. If it uses a nonce with `'strict-dynamic'`, host sources don't let the loader run: put the page's per-response nonce on the `<script src="https://widgets.reviewforest.org/main.js">` tag.
+If the site sends a Content Security Policy (a `Content-Security-Policy` header or `<meta http-equiv>` tag), extend it, or the widgets stay empty. When you add a directive the policy doesn't have yet, the browser stops falling back to `default-src` for it, so copy those sources in too: a policy with only `default-src 'self'` becomes, for example, `script-src 'self' https://widgets.reviewforest.org`, or the site's own scripts, requests and images break. If the policy also sets `script-src-elem` or `style-src-elem`, add the same sources there too, because those take precedence for `<script>` and `<style>` elements. If it uses a nonce with `'strict-dynamic'`, host sources don't let the loader run: put the page's per-response nonce on the `<script src="https://widgets.reviewforest.org/main.js">` tag.
 
 - `script-src`: `https://widgets.reviewforest.org`
 - `connect-src`: `https://api.reviewforest.org` (widget data) and `https://cdn.comvi.io` (widget texts)
@@ -224,7 +224,7 @@ Use the user's framework and match existing code patterns. For React — create 
 
 ### Review Text Structure
 
-Review content comes in two formats. **Note:** only the plain `text` form is returned by the `/reviews` endpoint. The structured form comes with review-type **trees** (from the `/trees` endpoint), which cover only reviews that planted a tree, and with `GET /v1/widgets/{uuid}/reviews`, the review feed of an embed widget: every review that widget shows, after its dashboard filters, and public (no key needed). To render a topic-by-topic breakdown, read it from one of those two.
+Review content comes in two formats. **Note:** only the plain `text` form is returned by the `/reviews` endpoint. The structured form comes with review-type **trees** (from the `/trees` endpoint), which cover only reviews that planted a tree, and with `GET /v1/widgets/{uuid}/reviews`, the review feed of an embed widget: every review that widget shows, after its dashboard filters, and public (no key needed). On a public page, take review names and texts only from the widget feed, also when you show them next to a tree: it leaves out reviews whose reviewer asked to be anonymized, while the tree feed can still carry another copy of the same review (a brand forest can hold one per channel). Read the tree feed's review content only in views behind a login.
 
 - **Simple:** `text` field contains the full review text as a string
 - **Structured:** `texts[]` and/or `ratings[]` arrays — the review broken down by topics. Each element usually has `id` (topic key) and `text` (may contain basic HTML formatting — sanitize before rendering); some Kununu entries are plain strings, so render a string entry as is, skip empty entries, and fall back to `text` when no topic content is left.
@@ -290,15 +290,17 @@ This is a minimal reference for correct API usage patterns. Do not copy-paste �
 // the dashboard. No API key in the browser.
 const API = 'https://api.reviewforest.org/v1';
 
-// Check res.ok in real code; on 404 hide the section rather than rendering "undefined".
-const [{ data: [widget] }, { data: reviews }] = await Promise.all([
-  // counts as one impression of the widget, like the embed's own request
-  fetch(`${API}/widgets?uuids=${widgetUuid}`).then(r => r.json()),
-  // the widget's dashboard filters applied, anonymized reviews left out; not counted as an impression
-  fetch(`${API}/widgets/${widgetUuid}/reviews?pageSize=10`).then(r => r.json()),
-]);
-
-if (!widget) return; // unknown or deleted UUID (200 with an empty list): render nothing
+async function loadWidgetReviews(widgetUuid) {
+  // Check res.ok in real code; on 404 hide the section rather than rendering "undefined".
+  const [{ data: [widget] }, { data: reviews }] = await Promise.all([
+    // counts as one impression of the widget, like the embed's own request
+    fetch(`${API}/widgets?uuids=${encodeURIComponent(widgetUuid)}`).then(r => r.json()),
+    // the widget's dashboard filters applied, anonymized reviews left out; not counted as an impression
+    fetch(`${API}/widgets/${encodeURIComponent(widgetUuid)}/reviews?pageSize=10`).then(r => r.json()),
+  ]);
+  if (!widget) return null; // unknown or deleted UUID (200 with an empty list): render nothing
+  return { widget, reviews };
+}
 
 // widget.data.score, .reviewAmountOnPlatform (the review count the badges show; .reviewAmount
 // counts imported reviews), .totalTreeAmount (for a brand forest whose campaign has ended, take the
